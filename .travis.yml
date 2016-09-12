@@ -1,0 +1,16 @@
+language: python
+python:
+  - "3.5"
+env:
+  global:
+    - CI=true
+# addons:
+#   apt_packages:
+#     - pandoc
+# command to install dependencies
+install:
+  - pip install . test
+script: python tests/supervisor.py
+branches:
+  only:
+    - master
