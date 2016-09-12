@@ -298,8 +298,9 @@ class Deamonizing_test(unittest.TestCase):
                 with self.assertRaises(SystemExit):
                     pidfile = _acquire_pidfile(fpath)
                     
-                # Ensure no zombies. See os.waitpid manpage.
-                os.waitpid(-1, 0)
+                # Ensure no zombies. See os.waitpid manpage. Immediately return
+                # to prevent hanging.
+                os.waitpid(-1, os.WNOHANG)
             
             # Child process
             else:
@@ -365,7 +366,7 @@ class Deamonizing_test(unittest.TestCase):
                 self.assertTrue(child_wdir.startswith(chdir))
                     
                 # Ensure no zombies. See os.waitpid manpage.
-                os.waitpid(child_pid, 0)
+                os.waitpid(child_pid, os.WNOHANG)
             
             # Child process
             else:
@@ -473,7 +474,7 @@ class Deamonizing_test(unittest.TestCase):
                 # Wait to ensure shutdown of other process.
                 # Ensure no zombies. See os.waitpid manpage.
                 time.sleep(1)
-                os.waitpid(-1, 0)
+                os.waitpid(-1, os.WNOHANG)
             
                 # Make sure the intermediate process is dead.
                 with self.assertRaises(OSError):
@@ -531,7 +532,7 @@ class Deamonizing_test(unittest.TestCase):
                 self.assertFalse(os.path.exists(pid_file))
                     
                 # Ensure no zombies. See os.waitpid manpage.
-                os.waitpid(pid, 0)
+                os.waitpid(pid, os.WNOHANG)
             
             finally:
                 # Explicitly call cleanup so that we don't have a competition 

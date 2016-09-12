@@ -40,10 +40,12 @@ import time
 import shutil
 import pickle
 import subprocess
+import multiprocessing
 
 from daemoniker._daemonize_windows import _SUPPORTED_PLATFORM
 
 from daemoniker._daemonize_windows import Daemonizer
+from daemoniker._daemonize_windows import daemonize
 from daemoniker._daemonize_windows import daemonize1
 from daemoniker._daemonize_windows import daemonize2
 from daemoniker._daemonize_windows import _capability_check
@@ -57,6 +59,32 @@ from daemoniker._daemonize_windows import _fork_worker
 # ###############################################
 # "Paragon of adequacy" test fixtures
 # ###############################################
+
+
+def childproc_daemon(pid_file, token, res_path):
+    ''' The test daemon quite simply daemonizes itself, does some stuff 
+    to confirm its existence, waits for a signal to die, and then dies.
+    '''
+    # Daemonize ourselves
+    token, res_path = daemonize(pid_file, token, res_path)
+    
+    # Unfortunately we don't have an easy way to deal with logging right now
+    # from hypergolix import logutils
+    # logname = logutils.autoconfig(suffix='daemon')
+    
+    # Write the token to the response path
+    try:
+        with open(res_path, 'w') as f:
+            f.write(str(token) + '\n')
+            
+        # Wait 1 second so that the parent can make sure our PID file exists
+        time.sleep(1)
+    
+    except:
+        logging.error(
+            'Failure writing token w/ traceback: \n' + 
+            ''.join(traceback.format_exc())
+        )
 
 
 # ###############################################
@@ -231,6 +259,76 @@ class Deamonizing_test(unittest.TestCase):
             if worker is not None and worker.returncode is None:
                 worker.terminate()
         
+    @unittest.skipIf(not _SUPPORTED_PLATFORM, 'Unsupported platform.')
+    def test_daemonization(self):
+        ''' Test whole daemonization chain. Platform-specific.
+        '''
+        # Manually manage the directory creation and removal so the forks don't
+        # destroy it.
+        with tempfile.TemporaryDirectory() as dirname:
+            
+            pid_file = dirname + '/testpid.pid'
+            token = 2718282
+            res_path = dirname + '/response.txt'
+            
+            worker_env = {
+                **os.environ,
+                '__TESTWORKER__': 'True',
+                '__WORKER_PIDFILE__': pid_file,
+                '__WORKER_TOKEN__': str(token),
+                '__WORKER_RESPATH__': res_path,
+            }
+            
+            # Create another instance of this same file in a daughter process
+            # to shield us from the os._exit at the end of the daemonization
+            # process
+            invocation = '"' + sys.executable + '" ' + \
+                         '"' + os.path.abspath(__file__) + '"'
+            worker = None
+            
+            try:
+                # Create the actual worker
+                worker = subprocess.Popen(
+                    invocation,
+                    # We're passing args via environment vars.
+                    env = worker_env,
+                )
+                
+                # Wait a moment for the daemon to show up
+                time.sleep(.5)
+                
+                # Now read the res_path if it's available
+                try:
+                    with open(res_path, 'r') as res:
+                        response = res.read()
+                
+                except (IOError, OSError) as exc:
+                    raise AssertionError from exc
+                    
+                # Make sure the token matches
+                self.assertTrue(response.startswith(str(token)))
+                # Make sure the pid file exists
+                self.assertTrue(os.path.exists(pid_file))
+                    
+                # Now hold off just a moment and then make sure the pid is 
+                # cleaned up successfully. Note that this timing is dependent
+                # upon the child process.
+                time.sleep(5)
+                self.assertFalse(os.path.exists(pid_file))
+                
+                
+            # Terminate the worker if it remains.
+            finally:
+                if worker is not None and worker.returncode is None:
+                    worker.terminate()
+            
 
 if __name__ == "__main__":
-    unittest.main()
+    if '__TESTWORKER__' in os.environ:
+        pid_file = os.environ['__WORKER_PIDFILE__']
+        token = int(os.environ['__WORKER_TOKEN__'])
+        res_path = os.environ['__WORKER_RESPATH__']
+        childproc_daemon(pid_file, token, res_path)
+        
+    else:
+        unittest.main()
