@@ -164,7 +164,7 @@ class Deamonizing_test(unittest.TestCase):
                 
                 self.assertTrue(os.path.exists(fpath))
                 with self.assertRaises(SystemExit):
-                    pidfile = _acquire_pidfile(fpath)
+                    pidfile = _acquire_pidfile(fpath, silence_logger=True)
                     
                 # Ensure no zombies. See os.waitpid manpage. Immediately return
                 # to prevent hanging.
@@ -338,7 +338,7 @@ class Deamonizing_test(unittest.TestCase):
                 
                 # Wait to ensure shutdown of other process.
                 # Ensure no zombies. See os.waitpid manpage.
-                time.sleep(1)
+                time.sleep(5)
                 # Wait for the intermediate process to clear (don't os.WNOHANG)
                 os.waitpid(-1, 0)
             
