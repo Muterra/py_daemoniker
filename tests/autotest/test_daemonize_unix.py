@@ -54,6 +54,9 @@ from daemoniker._daemonize_common import _acquire_pidfile
 # ###############################################
 
 
+# TODO: add signal alarm to avoid infinite hang system calls
+
+
 import _fixtures
 
 
@@ -338,7 +341,7 @@ class Deamonizing_test(unittest.TestCase):
                 
                 # Wait to ensure shutdown of other process.
                 # Ensure no zombies. See os.waitpid manpage.
-                time.sleep(5)
+                os.waitpid(inter_pid, 0)
                 # Wait for the intermediate process to clear (don't os.WNOHANG)
                 os.waitpid(-1, 0)
             
