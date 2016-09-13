@@ -10,7 +10,8 @@ env:
 # command to install dependencies
 os:
   - linux
-  - osx
+  # Evidently this doesn't work?
+  # - osx
 install:
   - pip install . test
 script: python tests/supervisor.py

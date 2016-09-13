@@ -46,6 +46,8 @@ from daemoniker._daemonize_unix import _fratricidal_fork
 from daemoniker._daemonize_unix import _filial_usurpation
 from daemoniker._daemonize_unix import _autoclose_files
 
+from daemoniker._daemonize_common import _acquire_pidfile
+
 
 # ###############################################
 # "Paragon of adequacy" test fixtures
@@ -146,7 +148,6 @@ class Deamonizing_test(unittest.TestCase):
         if _fixtures.__SKIP_ALL_REMAINING__:
             raise unittest.SkipTest('Internal call to skip remaining.')
     
-    # @unittest.skipIf(not _SUPPORTED_PLATFORM, 'Unsupported platform.')
     def test_acquire_file(self):
         ''' Test that locking the pidfile worked. Platform-specific.
         '''
@@ -175,7 +176,6 @@ class Deamonizing_test(unittest.TestCase):
                 childproc_acquire(fpath)
                 os._exit(0)
         
-    # @unittest.skipIf(not _SUPPORTED_PLATFORM, 'Unsupported platform.')
     def test_filial_usurp(self):
         ''' Test decoupling child from parent environment. Platform-
         specific.
@@ -248,7 +248,6 @@ class Deamonizing_test(unittest.TestCase):
                 )
                 os._exit(0)
         
-    # @unittest.skipIf(not _SUPPORTED_PLATFORM, 'Unsupported platform.')
     def test_autoclose_fs(self):
         ''' Test auto-closing files. Platform-specific.
         '''
@@ -312,7 +311,6 @@ class Deamonizing_test(unittest.TestCase):
                 except OSError:
                     pass
         
-    # @unittest.skipIf(not _SUPPORTED_PLATFORM, 'Unsupported platform.')
     def test_frat_fork(self):
         ''' Test "fratricidal" (okay, parricidal) forking (fork and 
         parent dies). Platform-specific.
@@ -341,7 +339,8 @@ class Deamonizing_test(unittest.TestCase):
                 # Wait to ensure shutdown of other process.
                 # Ensure no zombies. See os.waitpid manpage.
                 time.sleep(1)
-                os.waitpid(-1, os.WNOHANG)
+                # Wait for the intermediate process to clear (don't os.WNOHANG)
+                os.waitpid(-1, 0)
             
                 # Make sure the intermediate process is dead.
                 with self.assertRaises(OSError):
@@ -355,7 +354,6 @@ class Deamonizing_test(unittest.TestCase):
                 childproc_fratfork(res_path)
                 os._exit(0)
         
-    # @unittest.skipIf(not _SUPPORTED_PLATFORM, 'Unsupported platform.')
     def test_daemonize(self):
         ''' Test daemonization. Platform-specific.
         '''
