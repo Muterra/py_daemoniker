@@ -36,6 +36,9 @@ __all__ = []
 import pkgutil
 import inspect
 
+# Man, I'm really not sure how I feel about manipulating globals like this; I'd
+# much rather hook into importlib or something. Well, one of these days, TODO.
+
 # We want to load everything, but we want to do it in a way that doesn't cause
 # name conflicts if the tests accidentally reuse test case names.
 for loader, mod_name, is_pkg in pkgutil.walk_packages(__path__):

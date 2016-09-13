@@ -46,10 +46,9 @@ from daemoniker._daemonize_windows import _SUPPORTED_PLATFORM
 
 from daemoniker._daemonize_windows import Daemonizer
 from daemoniker._daemonize_windows import daemonize
-from daemoniker._daemonize_windows import daemonize1
-from daemoniker._daemonize_windows import daemonize2
+from daemoniker._daemonize_windows import _daemonize1
+from daemoniker._daemonize_windows import _daemonize2
 from daemoniker._daemonize_windows import _capability_check
-from daemoniker._daemonize_windows import _acquire_pidfile
 from daemoniker._daemonize_windows import _filial_usurpation
 from daemoniker._daemonize_windows import _clean_file
 from daemoniker._daemonize_windows import _NamespacePasser
@@ -59,6 +58,9 @@ from daemoniker._daemonize_windows import _fork_worker
 # ###############################################
 # "Paragon of adequacy" test fixtures
 # ###############################################
+
+
+import _fixtures
 
 
 def childproc_daemon(pid_file, token, res_path):
@@ -92,37 +94,15 @@ def childproc_daemon(pid_file, token, res_path):
 # ###############################################
         
         
+@unittest.skipIf(not _SUPPORTED_PLATFORM, 'Unsupported platform.')
 class Deamonizing_test(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        ''' Prep for abortability.
-        '''
-        cls.skip_remaining = False
-    
     def setUp(self):
         ''' Add a check that a test has not called for an exit, keeping
         forks from doing a bunch of nonsense.
         '''
-        if self.skip_remaining:
+        if _fixtures.__SKIP_ALL_REMAINING__:
             raise unittest.SkipTest('Internal call to skip remaining.')
-    
-    @unittest.skipIf(not _SUPPORTED_PLATFORM, 'Unsupported platform.')
-    def test_acquire_file(self):
-        ''' Test that "locking" the pidfile worked. Platform-specific.
-        '''
-        with tempfile.TemporaryDirectory() as dirname:
-            fpath = dirname + '/testpid.txt'
-                
-            self.assertFalse(os.path.exists(fpath))
-            try:
-                pidfile = _acquire_pidfile(fpath)
-                self.assertTrue(os.path.exists(fpath))
-                with self.assertRaises(SystemExit):
-                    pidfile = _acquire_pidfile(fpath, silence_logger=True)
-            finally:
-                pidfile.close()
         
-    @unittest.skipIf(not _SUPPORTED_PLATFORM, 'Unsupported platform.')
     def test_filial_usurp(self):
         ''' Test decoupling child from parent environment. Platform-
         specific.
@@ -137,7 +117,6 @@ class Deamonizing_test(unittest.TestCase):
             
             os.chdir(cwd)
         
-    @unittest.skipIf(not _SUPPORTED_PLATFORM, 'Unsupported platform.')
     def test_clean_file(self):
         ''' Test closing files. Platform-specific.
         '''
@@ -151,7 +130,6 @@ class Deamonizing_test(unittest.TestCase):
             _clean_file(path)
             self.assertFalse(os.path.exists(path))
         
-    @unittest.skipIf(not _SUPPORTED_PLATFORM, 'Unsupported platform.')
     def test_namespace_passer(self):
         ''' Test the namespace passing thingajobber.
         '''
@@ -168,7 +146,6 @@ class Deamonizing_test(unittest.TestCase):
         self.assertFalse(os.path.exists(temppath))
         self.assertFalse(os.path.exists(tempdir))
         
-    @unittest.skipIf(not _SUPPORTED_PLATFORM, 'Unsupported platform.')
     def test_fork_worker(self):
         ''' Test the worker meant to start the new process. Platform-
         specific.
@@ -207,7 +184,6 @@ class Deamonizing_test(unittest.TestCase):
             self.assertEqual(payload[5], stderr_goto)
             self.assertEqual(payload[6:], args)
         
-    @unittest.skipIf(not _SUPPORTED_PLATFORM, 'Unsupported platform.')
     def test_daemonize2(self):
         ''' Test respawning. Platform-specific.
         '''
@@ -244,7 +220,7 @@ class Deamonizing_test(unittest.TestCase):
                     
                 os.environ['__INVOKE_DAEMON__'] = ns_path
                 
-                result = daemonize2()
+                result = _daemonize2()
                 
                 self.assertEqual(list(result), list(args))
                 
@@ -259,7 +235,6 @@ class Deamonizing_test(unittest.TestCase):
             if worker is not None and worker.returncode is None:
                 worker.terminate()
         
-    @unittest.skipIf(not _SUPPORTED_PLATFORM, 'Unsupported platform.')
     def test_daemonization(self):
         ''' Test whole daemonization chain. Platform-specific.
         '''

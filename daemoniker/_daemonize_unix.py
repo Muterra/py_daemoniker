@@ -54,6 +54,12 @@ import shutil
 from .utils import platform_specificker
 from .utils import default_to
 
+from ._daemonize_common import _make_range_tuples
+from ._daemonize_common import _flush_stds
+from ._daemonize_common import _redirect_stds
+from ._daemonize_common import _write_pid
+from ._daemonize_common import _acquire_pidfile
+
 from .exceptions import ReceivedSignal
 
 _SUPPORTED_PLATFORM = platform_specificker(
@@ -117,61 +123,6 @@ class Daemonizer:
         # This will always only be exited by the child.
         pass
 
-
-
-                    
-def _acquire_pidfile(pid_file):
-    ''' Opens and locks the pid_file. This ensures that only one
-    instance of this particular daemon is running at any given time.
-    '''
-    # We're going to switch modes depending on if the file exists or not.
-    # Normally I'd open it as append, BUT saw this note in the python docs:
-    # "which on some Unix systems, means that all writes append to the end 
-    # of the file regardless of the current seek position"
-    try:
-        if os.path.isfile(pid_file):
-            logger.warning(
-                'PID file already exists. It will be overwritten with the '
-                'new PID upon successful daemonization.'
-            )
-            locked_pid = open(pid_file, 'r+')
-        else:
-            locked_pid = open(pid_file, 'w+')
-            
-    except (IOError, OSError) as exc:
-        logger.critical(
-            'Unable to create/open the PID file w/ traceback: \n' + 
-            ''.join(traceback.format_exc())
-        )
-        raise SystemExit('Unable to create/open PID file.') from exc
-        
-    # Acquire an exclusive lock. Do not block to acquire it. Failure will 
-    # raise an OSError (older versions raised IOError?).
-    try:
-        # Note that the flock(2) manpage states the lock will be released
-        # when all open file descriptors of it are closed.
-        fcntl.flock(locked_pid, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        
-    except (IOError, OSError) as exc:
-        logger.critical(
-            'Unable to lock the PID file w/ traceback: \n' + 
-            ''.join(traceback.format_exc())
-        )
-        locked_pid.close()
-        raise SystemExit('Unable to lock PID file.') from exc
-        
-    return locked_pid
-
-        
-def _write_pid(locked_pidfile):
-    ''' Write our PID to the (already locked (by us)) PIDfile.
-    '''
-    locked_pidfile.seek(0)
-    locked_pidfile.truncate(0)
-    pid = str(os.getpid())
-    locked_pidfile.write(pid + '\n')
-    locked_pidfile.flush()
-
             
 def _fratricidal_fork():
     ''' Fork the current process, and immediately exit the parent.
@@ -220,38 +171,6 @@ def _filial_usurpation(chdir, umask):
     # Set the permissions mask
     os.umask(umask)
 
-    
-def _make_range_tuples(start, stop, exclude):
-    ''' Creates a list of tuples for all ranges needed to close all 
-    files between start and stop, except exclude. Ex:
-    start=3, stop=7, exclude={4,}:
-        (3, 4),
-        (5, 7)
-    '''
-    # Make a list copy of exclude, discarding anything less than stop
-    exclude = [ii for ii in exclude if ii >= start]
-    # Sort ascending
-    exclude.sort()
-    
-    ranges = []
-    seeker = start
-    for ii in exclude:
-        # Only add actual slices (it wouldn't matter if we added empty ones, 
-        # but there's also no reason to).
-        if seeker != ii:
-            this_range = (seeker, ii)
-            ranges.append(this_range)
-            
-        # But always do this.
-        seeker = ii + 1
-        
-    # Don't forget to add the final range!
-    if seeker < stop:
-        final_range = (seeker, stop)
-        ranges.append(final_range)
-        
-    return ranges
-
         
 def _autoclose_files(shielded=None, fallback_limit=1024):
     ''' Automatically close any open file descriptors.
@@ -290,117 +209,6 @@ def _autoclose_files(shielded=None, fallback_limit=1024):
     for start, stop in ranges_to_close:
         # How nice of os to include this for us!
         os.closerange(start, stop)
-
-        
-def _flush_stds():
-    ''' Flush stdout and stderr.
-    
-    Note special casing needed for pythonw.exe, which has no stdout or 
-    stderr.
-    '''
-    try:
-        sys.stdout.flush()
-    except BlockingIOError:
-        logger.error(
-            'Failed to flush stdout w/ traceback: \n' + 
-            ''.join(traceback.format_exc())
-        )
-        # Honestly not sure if we should exit here.
-
-    try:
-        sys.stderr.flush()
-    except BlockingIOError:
-        logger.error(
-            'Failed to flush stderr w/ traceback: \n' + 
-            ''.join(traceback.format_exc())
-        )
-        # Honestly not sure if we should exit here.
-
-        
-def _redirect_stds(stdin_goto, stdout_goto, stderr_goto):
-    ''' Set stdin, stdout, sterr. If any of the paths don't exist, 
-    create them first.
-    '''
-    # The general strategy here is to:
-    # 1. figure out which unique paths we need to open for the redirects
-    # 2. figure out the minimum access we need to open them with
-    # 3. open the files to get them a file descriptor
-    # 4. copy those file descriptors into the FD's used for stdio, etc
-    # 5. close the original file descriptors
-    
-    # Remove repeated values through a set.
-    streams = {stdin_goto, stdout_goto, stderr_goto}
-    # Transform that into a dictionary of {location: 0, location: 0...}
-    # Basically, start from zero permissions
-    streams = {stream: 0 for stream in streams}
-    # And now create a bitmask for each of reading and writing
-    read_mask = 0b01
-    write_mask = 0b10
-    rw_mask = 0b11
-    # Update the streams dict depending on what access each stream requires
-    streams[stdin_goto] |= read_mask
-    streams[stdout_goto] |= write_mask
-    streams[stderr_goto] |= write_mask
-    # Now create a lookup to transform our masks into file access levels
-    access_lookup = {
-        read_mask: os.O_RDONLY,
-        write_mask: os.O_WRONLY,
-        rw_mask: os.O_RDWR
-    }
-    access_lookup_2 = {
-        read_mask: 'r',
-        write_mask: 'w',
-        rw_mask: 'w+'
-    }
-    access_mode = {}
-    
-    # Now, use our mask lookup to translate into actual file descriptors
-    for stream in streams:
-        # First create the file if its missing.
-        if not os.path.exists(stream):
-            with open(stream, 'w'):
-                pass
-        
-        # Transform the mask into the actual access level.
-        access = access_lookup[streams[stream]]
-        # Open the file with that level of access.
-        stream_fd = os.open(stream, access)
-        # Also alias the mode in case of pythonw.exe
-        access_mode[stream] = access_lookup_2[streams[stream]]
-        # And update streams to be that, instead of the access mask.
-        streams[stream] = stream_fd
-        # We cannot immediately close the stream, because we'll get an 
-        # error about a bad file descriptor.
-    
-    # Okay, duplicate our streams into the FDs for stdin, stdout, stderr.
-    stdin_fd = streams[stdin_goto]
-    stdout_fd = streams[stdout_goto]
-    stderr_fd = streams[stderr_goto]
-    
-    # Note that we need special casing for pythonw.exe, which has no stds
-    if sys.stdout is None:
-        open_streams = {}
-        for stream in streams:
-            open_streams[stream] = os.fdopen(
-                fd = streams[stream], 
-                mode = access_mode[stream]
-            )
-            
-        sys.stdin = open_streams[stdin_goto]
-        sys.stdout = open_streams[stdout_goto]
-        sys.stderr = open_streams[stderr_goto]
-        
-    else:
-        # Flush before transitioning
-        _flush_stds()
-        # Do iiiitttttt
-        os.dup2(stdin_fd, 0)
-        os.dup2(stdout_fd, 1)
-        os.dup2(stderr_fd, 2)
-
-        # Finally, close the extra fds.
-        for duped_fd in streams.values():
-            os.close(duped_fd)
 
         
 def daemonize(pid_file, *args, chdir=None, stdin_goto=None, stdout_goto=None, 
@@ -471,6 +279,7 @@ def daemonize(pid_file, *args, chdir=None, stdin_goto=None, stdout_goto=None,
                 'Failed to clean up pidfile w/ traceback: \n' + 
                 ''.join(traceback.format_exc())
             )
+            raise
     
     # Register this as soon as possible in case something goes wrong.
     atexit.register(cleanup)

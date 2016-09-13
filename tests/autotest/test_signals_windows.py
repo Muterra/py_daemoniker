@@ -73,6 +73,9 @@ if _SUPPORTED_PLATFORM:
 # ###############################################
 
 
+import _fixtures
+
+
 class ProcFixture:
     def __init__(self, returncode):
         self.returncode = returncode
@@ -86,21 +89,15 @@ class ProcFixture:
 # ###############################################
         
         
+@unittest.skipIf(not _SUPPORTED_PLATFORM, 'Unsupported platform.')
 class Signals_test(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        ''' Prep for abortability.
-        '''
-        cls.skip_remaining = False
-    
     def setUp(self):
         ''' Add a check that a test has not called for an exit, keeping
         forks from doing a bunch of nonsense.
         '''
-        if self.skip_remaining:
+        if _fixtures.__SKIP_ALL_REMAINING__:
             raise unittest.SkipTest('Internal call to skip remaining.')
     
-    @unittest.skipIf(not _SUPPORTED_PLATFORM, 'Unsupported platform.')
     def test_raise_in_main(self):
         ''' Punch holes in the interpreter for fun and profit!
         '''
@@ -113,7 +110,6 @@ class Signals_test(unittest.TestCase):
             worker.start()
             time.sleep(.1)
     
-    @unittest.skipIf(not _SUPPORTED_PLATFORM, 'Unsupported platform.')
     def test_default_handler(self):
         ''' Test the default signal handler.
         '''
@@ -153,7 +149,6 @@ class Signals_test(unittest.TestCase):
             worker.start()
             time.sleep(.1)
         
-    @unittest.skipIf(not _SUPPORTED_PLATFORM, 'Unsupported platform.')
     def test_noop(self):
         ''' Hey, it's a gimme.
         '''
@@ -161,7 +156,6 @@ class Signals_test(unittest.TestCase):
         _noop(signal.SIGTERM)
         _noop(signal.SIGABRT)
         
-    @unittest.skipIf(not _SUPPORTED_PLATFORM, 'Unsupported platform.')
     def test_signal_waiting(self):
         ''' Fixture thine self.
         '''
@@ -177,7 +171,6 @@ class Signals_test(unittest.TestCase):
         self.assertEqual(_await_signal(proc4), signal.SIGINT)
         self.assertEqual(_await_signal(proc5), signal.SIGINT)
         
-    @unittest.skipIf(not _SUPPORTED_PLATFORM, 'Unsupported platform.')
     def test_handler_normalization(self):
         ''' Convert defaults and constants to their intended targets.
         '''
@@ -187,7 +180,6 @@ class Signals_test(unittest.TestCase):
         self.assertEqual(_normalize_handler(None), _default_handler)
         self.assertEqual(_normalize_handler(IGNORE), _noop)
         
-    @unittest.skipIf(not _SUPPORTED_PLATFORM, 'Unsupported platform.')
     def test_send(self):
         ''' Test sending signals.
         '''
@@ -225,7 +217,6 @@ class Signals_test(unittest.TestCase):
                     with self.assertRaises(OSError):
                         send(pidfile, sig)
         
-    @unittest.skipIf(not _SUPPORTED_PLATFORM, 'Unsupported platform.')
     def test_receive(self):
         ''' Test receiving signals.
         '''

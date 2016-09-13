@@ -51,8 +51,10 @@ import threading
 from .utils import platform_specificker
 from .utils import default_to
 
-from ._daemonize_unix import _redirect_stds
-from ._daemonize_unix import _write_pid
+from ._daemonize_common import _redirect_stds
+from ._daemonize_common import _write_pid
+from ._daemonize_common import _acquire_pidfile
+
 from ._daemonize_unix import send
 from ._daemonize_unix import ping
 
@@ -113,11 +115,11 @@ class Daemonizer:
     def __enter__(self):
         # This the parent / setup pass
         if self._parent:
-            return self._parent, daemonize1
+            return self._parent, _daemonize1
         
         # This the child / daemon pass
         else:
-            return self._parent, daemonize2
+            return self._parent, _daemonize2
         
     def __exit__(self, exc_type, exc_value, exc_tb):
         ''' Exit doesn't really need to do any cleanup. But, it's needed
@@ -146,43 +148,6 @@ def _capability_check(pythonw_path, script_path):
             'Daemonizer cannot locate the script to daemonize (it seems '
             'to have lost itself).'
         )
-        
-        
-def _acquire_pidfile(pid_file, ignore_lock=False, silence_logger=False):
-    ''' Opens the pid_file, but unfortunately, as this is Windows, we 
-    cannot really lock it. Assume existence is equivalent to locking,
-    unless autoclean=True.
-    '''
-    try:
-        if os.path.isfile(pid_file):
-            if ignore_lock:
-                if not silence_logger:
-                    logger.warning(
-                        'PID file already exists. It will be overwritten with '
-                        'the new PID upon successful daemonization.'
-                    )
-                open_pid = open(pid_file, 'r+')
-                
-            else:
-                if not silence_logger:
-                    logger.critical(
-                        'PID file already exists. Acquire with autoclean=True '
-                        'to force cleanup of existing PID file. Traceback:\n' + 
-                        ''.join(traceback.format_exc())
-                    )
-                raise SystemExit('Unable to acquire PID file.')
-                
-        else:
-            open_pid = open(pid_file, 'w+')
-            
-    except (IOError, OSError) as exc:
-        logger.critical(
-            'Unable to create/open the PID file w/ traceback: \n' + 
-            ''.join(traceback.format_exc())
-        )
-        raise SystemExit('Unable to create/open PID file.') from exc
-        
-    return open_pid
     
     
 def _filial_usurpation(chdir):
@@ -301,7 +266,7 @@ def _fork_worker(namespace_path, child_env, pid_file, invocation, chdir,
         invocation, 
         # This is important, because the parent _forkish is telling the child
         # to run as a daemon via env. Also note that we need to calculate this
-        # in the root daemonize1, or else we'll have a polluted environment 
+        # in the root _daemonize1, or else we'll have a polluted environment 
         # due to the '__CREATE_DAEMON__' key.
         env = child_env,
         # This is vital; without it, our process will be reaped at parent
@@ -312,144 +277,144 @@ def _fork_worker(namespace_path, child_env, pid_file, invocation, chdir,
     daemon.wait()
             
             
-def daemonize1(pid_file, *args, chdir=None, stdin_goto=None, stdout_goto=None, 
-               stderr_goto=None, umask=0o027, shielded_fds=None, 
-               fd_fallback_limit=1024, success_timeout=30, 
-               strip_cmd_args=False):
-    ''' Create an independent process for invocation, telling it to 
-    store its "pid" in the pid_file (actually, the pid of its signal
-    listener). Payload is an iterable of variables to pass the invoked
-    command for returning from _respawnish.
-    
-    Note that a bare call to this function will result in all code 
-    before the daemonize() call to be run twice.
-    
-    The daemon's pid will be recorded in pid_file, but creating a
-        SignalHandler will overwrite it with the signaling subprocess
-        PID, which will change after every received signal.
-    *args will be passed to child. Waiting for success signal will 
-        timeout after success_timeout seconds.
-    strip_cmd_args will ignore all additional command-line args in the
-        second run.
-    all other args identical to unix version of daemonize.
-    
-    umask, shielded_fds, fd_fallback_limit are unused for this 
-    Windows version.
-    
-    success_timeout is the wait for a signal. If nothing happens 
-    after timeout, we will raise a ChildProcessError.
-    '''
-    ####################################################################
-    # Error trap and calculate invocation
-    ####################################################################
-    
-    # Convert any unset std streams to go to dev null
-    stdin_goto = default_to(stdin_goto, os.devnull)
-    stdin_goto = os.path.abspath(stdin_goto)
-    stdout_goto = default_to(stdout_goto, os.devnull)
-    stdout_goto = os.path.abspath(stdout_goto)
-    stderr_goto = default_to(stderr_goto, os.devnull)
-    stderr_goto = os.path.abspath(stderr_goto)
-    
-    # Convert chdir to go to current dir, and also to an abs path.
-    chdir = default_to(chdir, '.')
-    chdir = os.path.abspath(chdir)
+def _daemonize1(pid_file, *args, chdir=None, stdin_goto=None, stdout_goto=None, 
+                stderr_goto=None, umask=0o027, shielded_fds=None, 
+                fd_fallback_limit=1024, success_timeout=30, 
+                strip_cmd_args=False):
+        ''' Create an independent process for invocation, telling it to 
+        store its "pid" in the pid_file (actually, the pid of its signal
+        listener). Payload is an iterable of variables to pass the invoked
+        command for returning from _respawnish.
         
-    # First make sure we can actually do this.
-    # We need to check the path to pythonw.exe
-    python_path = sys.executable
-    python_path = os.path.abspath(python_path)
-    python_dir = os.path.dirname(python_path)
-    pythonw_path = python_dir + '/pythonw.exe'
-    # We also need to check our script is known and available
-    script_path = sys.argv[0]
-    script_path = os.path.abspath(script_path)
-    _capability_check(pythonw_path, script_path)
-    
-    invocation = '"' + pythonw_path + '" "' + script_path + '"'
-    # Note that we don't need to worry about being too short like this; python
-    # doesn't care with slicing. But, don't forget to escape the invocation.
-    if not strip_cmd_args:
-        for cmd_arg in sys.argv[1:]:
-            invocation += ' ' + shlex.quote(cmd_arg)
-    
-    ####################################################################
-    # Begin actual forking
-    ####################################################################
+        Note that a bare call to this function will result in all code 
+        before the daemonize() call to be run twice.
+        
+        The daemon's pid will be recorded in pid_file, but creating a
+            SignalHandler will overwrite it with the signaling subprocess
+            PID, which will change after every received signal.
+        *args will be passed to child. Waiting for success signal will 
+            timeout after success_timeout seconds.
+        strip_cmd_args will ignore all additional command-line args in the
+            second run.
+        all other args identical to unix version of daemonize.
+        
+        umask, shielded_fds, fd_fallback_limit are unused for this 
+        Windows version.
+        
+        success_timeout is the wait for a signal. If nothing happens 
+        after timeout, we will raise a ChildProcessError.
+        '''
+        ####################################################################
+        # Error trap and calculate invocation
+        ####################################################################
+        
+        # Convert any unset std streams to go to dev null
+        stdin_goto = default_to(stdin_goto, os.devnull)
+        stdin_goto = os.path.abspath(stdin_goto)
+        stdout_goto = default_to(stdout_goto, os.devnull)
+        stdout_goto = os.path.abspath(stdout_goto)
+        stderr_goto = default_to(stderr_goto, os.devnull)
+        stderr_goto = os.path.abspath(stderr_goto)
+        
+        # Convert chdir to go to current dir, and also to an abs path.
+        chdir = default_to(chdir, '.')
+        chdir = os.path.abspath(chdir)
             
-    # Convert the pid_file to an abs path
-    pid_file = os.path.abspath(pid_file)
-    # Get a "lock" on the PIDfile before forking anything by opening it 
-    # without silencing anything. Unless we error out while birthing, it
-    # will be our daughter's job to clean up this file.
-    open_pidfile = _acquire_pidfile(pid_file)
-    open_pidfile.close()
+        # First make sure we can actually do this.
+        # We need to check the path to pythonw.exe
+        python_path = sys.executable
+        python_path = os.path.abspath(python_path)
+        python_dir = os.path.dirname(python_path)
+        pythonw_path = python_dir + '/pythonw.exe'
+        # We also need to check our script is known and available
+        script_path = sys.argv[0]
+        script_path = os.path.abspath(script_path)
+        _capability_check(pythonw_path, script_path)
         
-    try:
-        # Now open up a secure way to pass a namespace to the daughter process.
-        with _NamespacePasser() as fpath:
-            # Determine the child env
-            child_env = {**_get_clean_env(), '__INVOKE_DAEMON__': fpath}
+        invocation = '"' + pythonw_path + '" "' + script_path + '"'
+        # Note that we don't need to worry about being too short like this; python
+        # doesn't care with slicing. But, don't forget to escape the invocation.
+        if not strip_cmd_args:
+            for cmd_arg in sys.argv[1:]:
+                invocation += ' ' + shlex.quote(cmd_arg)
+        
+        ####################################################################
+        # Begin actual forking
+        ####################################################################
                 
-            # We need to shield ourselves from signals, or we'll be terminated
-            # by python before running cleanup. So use a spawned worker to
-            # handle the actual daemon creation.
+        # Convert the pid_file to an abs path
+        pid_file = os.path.abspath(pid_file)
+        # Get a "lock" on the PIDfile before forking anything by opening it 
+        # without silencing anything. Unless we error out while birthing, it
+        # will be our daughter's job to clean up this file.
+        open_pidfile = _acquire_pidfile(pid_file)
+        open_pidfile.close()
             
-            with _NamespacePasser() as worker_argpath:
-                # Write an argvector for the worker to the namespace passer
-                worker_argv = (
-                    fpath, # namespace_path
-                    child_env,
-                    pid_file,
-                    invocation,
-                    chdir,
-                    stdin_goto,
-                    stdout_goto,
-                    stderr_goto,
-                    args
-                )
-                with open(worker_argpath, 'wb') as f:
-                    # Use the highest available protocol
-                    pickle.dump(worker_argv, f, protocol=-1)
+        try:
+            # Now open up a secure way to pass a namespace to the daughter process.
+            with _NamespacePasser() as fpath:
+                # Determine the child env
+                child_env = {**_get_clean_env(), '__INVOKE_DAEMON__': fpath}
                     
-                # Create an env for the worker to let it know what to do
-                worker_env = {**_get_clean_env(), '__CREATE_DAEMON__': 'True'}
-                # Figure out the path to the current file
-                worker_target = os.path.abspath(__file__)
-                worker_cmd = ('"' + python_path + '" -m ' + 
-                              'daemoniker._daemonize_windows ' + 
-                              '"' + worker_argpath + '"')
-            
-                try:
-                    # This will wait for the worker to finish, or cancel it at
-                    # the timeout.
-                    worker = subprocess.run(
-                        worker_cmd, 
-                        env = worker_env, 
-                        timeout = success_timeout
+                # We need to shield ourselves from signals, or we'll be terminated
+                # by python before running cleanup. So use a spawned worker to
+                # handle the actual daemon creation.
+                
+                with _NamespacePasser() as worker_argpath:
+                    # Write an argvector for the worker to the namespace passer
+                    worker_argv = (
+                        fpath, # namespace_path
+                        child_env,
+                        pid_file,
+                        invocation,
+                        chdir,
+                        stdin_goto,
+                        stdout_goto,
+                        stderr_goto,
+                        args
                     )
-                    
-                    # Make sure it actually terminated via the success signal
-                    if worker.returncode != signal.SIGINT:
-                        raise RuntimeError(
-                            'Daemon creation worker exited prematurely.'
-                        )
-                    
-                except subprocess.TimeoutExpired as exc:
-                    raise ChildProcessError(
-                        'Timeout while waiting for daemon init.'
-                    ) from exc
+                    with open(worker_argpath, 'wb') as f:
+                        # Use the highest available protocol
+                        pickle.dump(worker_argv, f, protocol=-1)
+                        
+                    # Create an env for the worker to let it know what to do
+                    worker_env = {**_get_clean_env(), '__CREATE_DAEMON__': 'True'}
+                    # Figure out the path to the current file
+                    worker_target = os.path.abspath(__file__)
+                    worker_cmd = ('"' + python_path + '" -m ' + 
+                                  'daemoniker._daemonize_windows ' + 
+                                  '"' + worker_argpath + '"')
                 
-    # If anything goes wrong in there, we need to clean up the pidfile.
-    except:
-        _clean_file(pid_file)
-        raise
-            
-    # Success. Exit the interpreter.
-    os._exit(0)
+                    try:
+                        # This will wait for the worker to finish, or cancel it at
+                        # the timeout.
+                        worker = subprocess.run(
+                            worker_cmd, 
+                            env = worker_env, 
+                            timeout = success_timeout
+                        )
+                        
+                        # Make sure it actually terminated via the success signal
+                        if worker.returncode != signal.SIGINT:
+                            raise RuntimeError(
+                                'Daemon creation worker exited prematurely.'
+                            )
+                        
+                    except subprocess.TimeoutExpired as exc:
+                        raise ChildProcessError(
+                            'Timeout while waiting for daemon init.'
+                        ) from exc
+                    
+        # If anything goes wrong in there, we need to clean up the pidfile.
+        except:
+            _clean_file(pid_file)
+            raise
+                
+        # Success. Exit the interpreter.
+        os._exit(0)
     
     
-def daemonize2(*daemonize1_args, **daemonize1_kwargs):
+def _daemonize2(*_daemonize1_args, **_daemonize1_kwargs):
     ''' Unpacks the daemonization. Modifies the new environment as per
     the parent's forkish() call. Registers appropriate cleanup methods
     for the pid_file. Signals successful daemonization. Returns the
@@ -500,9 +465,9 @@ def daemonize2(*daemonize1_args, **daemonize1_kwargs):
 
 
 if '__INVOKE_DAEMON__' in os.environ:
-    daemonize = daemonize2
+    daemonize = _daemonize2
 else:
-    daemonize = daemonize1
+    daemonize = _daemonize1
     
     
 def _get_clean_env():
