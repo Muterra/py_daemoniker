@@ -1,6 +1,4 @@
 language: python
-python:
-  - "3.5"
 env:
   global:
     - CI=true
@@ -20,7 +18,7 @@ matrix:
       language: generic
   
 install:
-  - .travis-install.sh
+  - ./.travis-install.sh
   - pip install . test
 script: python tests/supervisor.py
 branches:
