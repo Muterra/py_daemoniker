@@ -138,7 +138,7 @@ class Signals_test(unittest.TestCase):
         
         try:
             sighandler = SignalHandler1(
-                pidfile, 
+                '/tmp/does/not/exist/and/unused.txt', 
                 sigint = handler, 
                 sigterm = handler, 
                 sigabrt = handler
