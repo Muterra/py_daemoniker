@@ -28,17 +28,6 @@ daemoniker: Cross-platform daemonization tools.
     Boston, MA  02110-1301 USA
 
 ------------------------------------------------------
-
-This was written with heavy consultation of the following resources:
-    Chad J. Schroeder, Creating a daemon the Python way (Python recipe) 
-        http://code.activestate.com/recipes/
-        278731-creating-a-daemon-the-python-way/
-    Ilya Otyutskiy, Daemonize
-        https://github.com/thesharp/daemonize
-    David Mytton, unknown, et al: A simple daemon in Python
-        http://www.jejik.com/articles/2007/02/
-        a_simple_unix_linux_daemon_in_python/www.boxedice.com
-    
 '''
 
 # Global dependencies

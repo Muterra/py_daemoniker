@@ -46,6 +46,7 @@ logging.getLogger(__name__).addHandler(NullHandler())
 __all__ = [
     'Daemonizer',
     'daemonize',
+    'SignalHandler1',
 ]
 
 

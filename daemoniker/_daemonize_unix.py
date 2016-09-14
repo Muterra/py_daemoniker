@@ -106,9 +106,9 @@ class Daemonizer:
         if is_setup:
             setup_code_here()
         else:
-            windows_only_child_code_goes_here()
+            this_will_not_be_run_on_unix()
             
-        *args = daemonize(*args)
+        *args = daemonize(*daemonizer_args, *args)
     ''' 
     def __enter__(self):
         # This will always only be entered by the parent.

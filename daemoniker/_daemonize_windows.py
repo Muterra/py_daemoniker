@@ -99,9 +99,10 @@ class Daemonizer:
     with Daemonizer() as (is_setup, daemonize):
         if is_setup:
             setup_code_here()
-            daemonize(*args)
         else:
-            *args = daemonize()
+            this_will_not_be_run_on_unix()
+            
+        *args = daemonize(*daemonizer_args, *args)
     '''
     def __init__(self):
         ''' Inspect the environment and determine if we're the parent

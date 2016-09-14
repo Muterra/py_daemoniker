@@ -87,6 +87,7 @@ def childproc_daemon(pid_file, token, res_path):
             'Failure writing token w/ traceback: \n' + 
             ''.join(traceback.format_exc())
         )
+        raise
 
 
 # ###############################################
@@ -238,8 +239,6 @@ class Deamonizing_test(unittest.TestCase):
     def test_daemonization(self):
         ''' Test whole daemonization chain. Platform-specific.
         '''
-        # Manually manage the directory creation and removal so the forks don't
-        # destroy it.
         with tempfile.TemporaryDirectory() as dirname:
             
             pid_file = dirname + '/testpid.pid'
