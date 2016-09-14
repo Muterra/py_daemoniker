@@ -94,40 +94,16 @@ class Signals_test(unittest.TestCase):
         ''' Test the default signal handler.
         '''
         with self.assertRaises(SignalError):
-            worker = threading.Thread(
-                target = SignalHandler1._default_handler,
-                args = (-42,),
-                daemon = True
-            )
-            worker.start()
-            time.sleep(.1)
+            SignalHandler1._default_handler(-42)
             
         with self.assertRaises(SIGABRT):
-            worker = threading.Thread(
-                target = SignalHandler1._default_handler,
-                args = (signal.SIGABRT,),
-                daemon = True
-            )
-            worker.start()
-            time.sleep(.1)
+            SignalHandler1._default_handler(signal.SIGABRT)
             
         with self.assertRaises(SIGINT):
-            worker = threading.Thread(
-                target = SignalHandler1._default_handler,
-                args = (signal.SIGINT,),
-                daemon = True
-            )
-            worker.start()
-            time.sleep(.1)
+            SignalHandler1._default_handler(signal.SIGINT)
             
         with self.assertRaises(SIGTERM):
-            worker = threading.Thread(
-                target = SignalHandler1._default_handler,
-                args = (signal.SIGTERM,),
-                daemon = True
-            )
-            worker.start()
-            time.sleep(.1)
+            SignalHandler1._default_handler(signal.SIGTERM)
         
     def test_send(self):
         ''' Test sending signals.
@@ -161,8 +137,6 @@ class Signals_test(unittest.TestCase):
             events[signum].set()
         
         try:
-            pidfile = dirpath + '/pid.pid'
-            
             sighandler = SignalHandler1(
                 pidfile, 
                 sigint = handler, 
