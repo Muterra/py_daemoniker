@@ -449,8 +449,7 @@ class Deamonizing_test(unittest.TestCase):
         # We need to do this manually because the fork needs to call its own
         # cleanup, and it needs to be before the fork because otherwise the
         # fork won't know its own home
-        tempdir = tempfile.TemporaryDirectory()
-        dirname = tempdir.name
+        dirname = tempfile.mkdtemp()
         
         pid_file = dirname + '/testpid.pid'
         token = 2718282
@@ -498,8 +497,8 @@ class Deamonizing_test(unittest.TestCase):
                 # cleaned up successfully. Note that this timing is dependent
                 # upon the child process.
                 # Wait for the intermediate process to clear (don't os.WNOHANG)
-                time.sleep(2)
                 os.waitpid(-1, 0)
+                time.sleep(2)
                 self.assertFalse(os.path.exists(pid_file))
                 
                 # And verify the check file was not overwritten either
@@ -512,7 +511,7 @@ class Deamonizing_test(unittest.TestCase):
                 self.assertEqual(int(check), check_seed)
             
             finally:
-                tempdir.cleanup()
+                shutil.rmtree(dirname)
                 
         # Child process
         else:
