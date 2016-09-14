@@ -152,12 +152,12 @@ class SignalHandler1(_SighandlerCore):
         try:
             # First we need to make closures around all of our attributes, so
             # they can be updated after we start listening to signals
-            def sigint_closure(*args, **kwargs):
-                return self.sigint(*args, **kwargs)
-            def sigterm_closure(*args, **kwargs):
-                return self.sigterm(*args, **kwargs)
-            def sigabrt_closure(*args, **kwargs):
-                return self.sigabrt(*args, **kwargs)
+            def sigint_closure(signum, frame):
+                return self.sigint(signum)
+            def sigterm_closure(signum, frame):
+                return self.sigterm(signum)
+            def sigabrt_closure(signum, frame):
+                return self.sigabrt(signum)
                 
             # Now simply register those with signal.signal
             old_sigint = signal.signal(signal.SIGINT, sigint_closure)
