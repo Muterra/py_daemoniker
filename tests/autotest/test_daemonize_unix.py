@@ -446,18 +446,24 @@ class Deamonizing_test(unittest.TestCase):
         ''' Test the context manager. Should produce same results on
         Windows and Unix, but still needs to be run on both.
         '''
-        with tempfile.TemporaryDirectory() as dirname:
-            pid_file = dirname + '/testpid.pid'
-            token = 2718282
-            check_seed = 3179
-            res_path = dirname + '/response.txt'
-            # Check path is there to ensure that setup code only runs once
-            check_path = dirname + '/check.txt'
+        # We need to do this manually because the fork needs to call its own
+        # cleanup, and it needs to be before the fork because otherwise the
+        # fork won't know its own home
+        tempdir = tempfile.TemporaryDirectory()
+        dirname = tempdir.name
+        
+        pid_file = dirname + '/testpid.pid'
+        token = 2718282
+        check_seed = 3179
+        res_path = dirname + '/response.txt'
+        # Check path is there to ensure that setup code only runs once
+        check_path = dirname + '/check.txt'
             
-            pid = os.fork()
-            
-            # Parent process
-            if pid != 0:
+        pid = os.fork()
+        
+        # Parent process
+        if pid != 0:
+            try:
                 # Wait a moment for the daemon to show up
                 time.sleep(.5)
                 
@@ -503,29 +509,36 @@ class Deamonizing_test(unittest.TestCase):
                 except (IOError, OSError) as exc:
                     raise AssertionError from exc
                 self.assertEqual(int(check), check_seed)
+            
+            finally:
+                tempdir.cleanup()
                 
-            # Child process
-            else:
-                try:
-                    childproc_daemonizer(
-                        pid_file, 
-                        token, 
-                        res_path, 
-                        check_path, 
-                        check_seed
-                    )
-                except:
-                    with open(res_path,'w') as f:
-                        f.write(''.join(traceback.format_exc()))
-                    raise
-                finally:
-                    # Unceremoniously tell everything to fuck off. Full stop.
-                    # Sorry, I'm in a bad mood. Someone bailed on me and I was
-                    # really looking forward to seeing them, so here we are,
-                    # writing little meaningless comments to fill the gaping
-                    # emptiness where my sometimes semi-sarcastic soul should
-                    # be
-                    os._exit(0)
+        # Child process
+        else:
+            try:
+                childproc_daemonizer(
+                    pid_file, 
+                    token, 
+                    res_path, 
+                    check_path, 
+                    check_seed
+                )
+            except:
+                with open(res_path,'w') as f:
+                    f.write(''.join(traceback.format_exc()))
+                raise
+            finally:
+                # Unceremoniously tell everything to fuck off. Full stop.
+                # Sorry, I'm in a bad mood. Someone bailed on me and I was
+                # really looking forward to seeing them, so here we are,
+                # writing little meaningless comments to fill the gaping
+                # emptiness where my sometimes semi-sarcastic soul should
+                # be
+                # os._exit(0)
+                # Goddammit you've gotta be kidding me, that fails to call the
+                # fucking cleanup, so we can't even do that.
+                _fixtures.__SKIP_ALL_REMAINING__ = True
+                raise SystemExit()
         
 
 if __name__ == "__main__":
