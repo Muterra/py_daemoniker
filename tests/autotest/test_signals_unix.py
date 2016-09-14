@@ -59,9 +59,6 @@ from daemoniker.exceptions import SIGINT
 from daemoniker.exceptions import SIGTERM
 from daemoniker.exceptions import SIGABRT
 
-if _SUPPORTED_PLATFORM:
-    import psutil
-
 
 # ###############################################
 # "Paragon of adequacy" test fixtures
