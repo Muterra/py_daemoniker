@@ -54,6 +54,7 @@ from .utils import default_to
 from ._daemonize_windows import _get_clean_env
 from ._signals_common import IGNORE_SIGNAL
 from ._signals_common import _noop
+from ._signals_common import _SighandlerCore
 
 from .exceptions import SignalError
 from .exceptions import ReceivedSignal
@@ -119,30 +120,6 @@ def _sketch_raise_in_main(exc):
         raise SystemError('Failed to raise in main thread.')
     
     
-def _default_handler(signum, *args):
-    ''' The default signal handler. Don't register with signal.signal!
-    This needs to be used on the subprocess await death workaround.
-    '''
-    # All valid cpython windows signals
-    sigs = {
-        signal.SIGABRT: SIGABRT,
-        # signal.SIGFPE: 'fpe', # Don't catch this
-        # signal.SIGSEGV: 'segv', # Don't catch this
-        # signal.SIGILL: 'illegal', # Don't catch this
-        signal.SIGINT: SIGINT,
-        signal.SIGTERM: SIGTERM,
-        # signal.CTRL_C_EVENT: SIGINT, # Convert to SIGINT in _await_signal
-        # signal.CTRL_BREAK_EVENT: SIGINT # Convert to SIGINT in _await_signal
-    }
-    
-    try:
-        exc = sigs[signum]
-    except KeyError:
-        exc = SignalError
-        
-    _sketch_raise_in_main(exc)
-    
-    
 def _infinite_noop():
     ''' Give a process something to do while it waits for a signal.
     '''
@@ -165,22 +142,11 @@ def _await_signal(process):
         code = signal.SIGINT
     
     return code
-
-
-def _normalize_handler(handler):
-    ''' Normalizes a signal handler. Converts None to the default, and
-    IGNORE_SIGNAL to noop.
-    '''
-    # None -> _default_handler
-    handler = default_to(handler, _default_handler)
-    # IGNORE_SIGNAL -> _noop
-    handler = default_to(handler, _noop, comparator=IGNORE_SIGNAL)
-    
-    return handler
     
     
-class SignalHandler1:
-    ''' Signal handling system using a daughter thread.
+class SignalHandler1(_SighandlerCore):
+    ''' Signal handling system using a daughter thread and a disposable
+    daughter process.
     '''
     def __init__(self, pid_file, sigint=None, sigterm=None, sigabrt=None):
         ''' Creates a signal handler, using the passed callables. None
@@ -202,36 +168,48 @@ class SignalHandler1:
         self._started = threading.Event()
         
     def start(self):
-        with self._opslock:
-            if self._running:
-                raise RuntimeError('SignalHandler is already running.')
+        try:
+            with self._opslock:
+                if self._running:
+                    raise RuntimeError('SignalHandler is already running.')
+                    
+                self._stopped.clear()
+                self._running = True
+                self._thread = threading.Thread(
+                    target = self._listen_loop,
+                    # We need to always reset the PID file.
+                    daemon = False
+                )
+                self._thread.start()
                 
-            self._stopped.clear()
-            self._running = True
-            self._thread = threading.Thread(
-                target = self._listen_loop,
-                # We need to always reset the PID file.
-                daemon = False
-            )
-            self._thread.start()
+            atexit.register(self.stop)
             
-        atexit.register(self.stop)
+            # Only set up a watcher once, and then let it run forever.
+            if self._watcher is None:
+                self._watcher = threading.Thread(
+                    target = self._watch_for_exit,
+                    # Who watches the watchman?
+                    # Daemon threading this is important to protect us against
+                    # issues during closure.
+                    daemon = True
+                )
+                self._watcher.start()
+                
+            self._started.wait()
         
-        # Only set up a watcher once, and then let it run forever.
-        if self._watcher is None:
-            self._watcher = threading.Thread(
-                target = self._watch_for_exit,
-                # Who watches the watchman?
-                # Daemon threading this is important to protect us against
-                # issues during closure.
-                daemon = True
-            )
-            self._watcher.start()
-            
-        self._started.wait()
+        except:
+            self._stop_nowait()
+            raise
         
     def stop(self):
         ''' Hold the phone! Idempotent.
+        '''
+        self._stop_nowait()
+        self._stopped.wait()
+        
+    def _stop_nowait(self):
+        ''' Stops the listener without waiting for the _stopped flag.
+        Only called directly if there's an error while starting.
         '''
         with self._opslock:
             self._running = False
@@ -241,62 +219,6 @@ class SignalHandler1:
                 self._worker.terminate()
                 
         atexit.unregister(self.stop)
-        
-        self._stopped.wait()
-        
-    @property
-    def sigint(self):
-        ''' Gets sigint.
-        '''
-        return self._sigint
-        
-    @sigint.setter
-    def sigint(self, handler):
-        ''' Normalizes and sets sigint.
-        '''
-        self._sigint = _normalize_handler(handler)
-        
-    @sigint.deleter
-    def sigint(self):
-        ''' Returns the sigint handler to the default.
-        '''
-        self.sigint = None
-        
-    @property
-    def sigterm(self):
-        ''' Gets sigterm.
-        '''
-        return self._sigterm
-        
-    @sigterm.setter
-    def sigterm(self, handler):
-        ''' Normalizes and sets sigterm.
-        '''
-        self._sigterm = _normalize_handler(handler)
-        
-    @sigterm.deleter
-    def sigterm(self):
-        ''' Returns the sigterm handler to the default.
-        '''
-        self.sigterm = None
-        
-    @property
-    def sigabrt(self):
-        ''' Gets sigabrt.
-        '''
-        return self._sigabrt
-        
-    @sigabrt.setter
-    def sigabrt(self, handler):
-        ''' Normalizes and sets sigabrt.
-        '''
-        self._sigabrt = _normalize_handler(handler)
-        
-    @sigabrt.deleter
-    def sigabrt(self):
-        ''' Returns the sigabrt handler to the default.
-        '''
-        self.sigabrt = None
         
     def _listen_loop(self):
         ''' Manages all signals.
@@ -375,6 +297,31 @@ class SignalHandler1:
         main = threading.main_thread()
         main.join()
         self.stop()
+    
+    @staticmethod
+    def _default_handler(signum, *args):
+        ''' The default signal handler. Don't register with built-in
+        signal.signal! This needs to be used on the subprocess await
+        death workaround.
+        '''
+        # All valid cpython windows signals
+        sigs = {
+            signal.SIGABRT: SIGABRT,
+            # signal.SIGFPE: 'fpe', # Don't catch this
+            # signal.SIGSEGV: 'segv', # Don't catch this
+            # signal.SIGILL: 'illegal', # Don't catch this
+            signal.SIGINT: SIGINT,
+            signal.SIGTERM: SIGTERM,
+            # Note that signal.CTRL_C_EVENT and signal.CTRL_BREAK_EVENT are
+            # converted to SIGINT in _await_signal
+        }
+        
+        try:
+            exc = sigs[signum]
+        except KeyError:
+            exc = SignalError
+            
+        _sketch_raise_in_main(exc)
     
     
 if __name__ == '__main__':

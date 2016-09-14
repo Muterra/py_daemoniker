@@ -103,3 +103,73 @@ def ping(pid_file):
         return False
     else:
         return True
+
+
+def _normalize_handler(handler, default_handler):
+    ''' Normalizes a signal handler. Converts None to the default, and
+    IGNORE_SIGNAL to noop.
+    '''
+    # None -> _default_handler
+    handler = default_to(handler, default_handler)
+    # IGNORE_SIGNAL -> _noop
+    handler = default_to(handler, _noop, comparator=IGNORE_SIGNAL)
+    
+    return handler
+        
+        
+class _SighandlerCore:
+    ''' Core, platform-independent functionality for signal handlers.
+    '''
+    @property
+    def sigint(self):
+        ''' Gets sigint.
+        '''
+        return self._sigint
+        
+    @sigint.setter
+    def sigint(self, handler):
+        ''' Normalizes and sets sigint.
+        '''
+        self._sigint = _normalize_handler(handler, self._default_handler)
+        
+    @sigint.deleter
+    def sigint(self):
+        ''' Returns the sigint handler to the default.
+        '''
+        self.sigint = None
+        
+    @property
+    def sigterm(self):
+        ''' Gets sigterm.
+        '''
+        return self._sigterm
+        
+    @sigterm.setter
+    def sigterm(self, handler):
+        ''' Normalizes and sets sigterm.
+        '''
+        self._sigterm = _normalize_handler(handler, self._default_handler)
+        
+    @sigterm.deleter
+    def sigterm(self):
+        ''' Returns the sigterm handler to the default.
+        '''
+        self.sigterm = None
+        
+    @property
+    def sigabrt(self):
+        ''' Gets sigabrt.
+        '''
+        return self._sigabrt
+        
+    @sigabrt.setter
+    def sigabrt(self, handler):
+        ''' Normalizes and sets sigabrt.
+        '''
+        self._sigabrt = _normalize_handler(handler, self._default_handler)
+        
+    @sigabrt.deleter
+    def sigabrt(self):
+        ''' Returns the sigabrt handler to the default.
+        '''
+        self.sigabrt = None
