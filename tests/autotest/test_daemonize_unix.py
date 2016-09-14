@@ -524,7 +524,7 @@ class Deamonizing_test(unittest.TestCase):
                     # writing little meaningless comments to fill the gaping
                     # emptiness where my sometimes semi-sarcastic soul should
                     # be
-                    os._exit()
+                    os._exit(0)
         
 
 if __name__ == "__main__":
