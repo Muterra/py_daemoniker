@@ -491,7 +491,8 @@ class Deamonizing_test(unittest.TestCase):
                 # Now hold off just a moment and then make sure the pid is 
                 # cleaned up successfully. Note that this timing is dependent
                 # upon the child process.
-                time.sleep(5)
+                # Wait for the intermediate process to clear (don't os.WNOHANG)
+                os.waitpid(-1, 0)
                 self.assertFalse(os.path.exists(pid_file))
                 
                 # And verify the check file was not overwritten either
