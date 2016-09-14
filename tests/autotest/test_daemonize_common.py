@@ -42,7 +42,7 @@ import random
 import subprocess
 import traceback
 
-from daemoniker import Daemonizer
+from daemoniker.utils import platform_specificker
 
 from daemoniker._daemonize_common import _make_range_tuples
 from daemoniker._daemonize_common import _flush_stds
@@ -57,33 +57,6 @@ from daemoniker._daemonize_common import _acquire_pidfile
 
 
 import _fixtures
-
-
-def childproc_daemonizer(pid_file, token, res_path, check_path, check_seed):
-    try:
-        with Daemonizer() as (is_setup, daemonize):
-            if is_setup:
-                # It should only exist if we run is_setup twice.
-                if os.path.exists(check_path):
-                    check_seed = 9999
-                
-                with open(check_path, 'w') as f:
-                    f.write(str(check_seed) + '\n')
-                    
-            token, res_path = daemonize(pid_file, token, res_path)
-            
-            with open(res_path, 'w') as f:
-                f.write(str(token) + '\n')
-                
-            # Wait a moment so that the parent can check our PID file
-            time.sleep(1)
-    except:
-        logging.error(
-            'Failure writing token w/ traceback: \n' + 
-            ''.join(traceback.format_exc())
-        )
-        raise
-        
 
 
 # ###############################################
@@ -241,115 +214,7 @@ class Deamonizing_test(unittest.TestCase):
                     pidfile = _acquire_pidfile(fpath, silence_logger=True)
             finally:
                 pidfile.close()
-                
-    def test_context_manager(self):
-        ''' Test the context manager. Should produce same results on
-        Windows and Unix, but still needs to be run on both.
-        '''
-        with tempfile.TemporaryDirectory() as dirname:
-            pid_file = dirname + '/testpid.pid'
-            token = 2718282
-            check_seed = 3179
-            res_path = dirname + '/response.txt'
-            # Check path is there to ensure that setup code only runs once
-            check_path = dirname + '/check.txt'
-            
-            worker_env = {
-                **os.environ,
-                '__TESTWORKER__': 'True',
-                '__WORKER_PIDFILE__': pid_file,
-                '__WORKER_TOKEN__': str(token),
-                '__WORKER_RESPATH__': res_path,
-                '__WORKER_CHECKPATH__': check_path,
-                '__WORKER_CHECKSEED__': str(check_seed),
-            }
-            
-            # Create another instance of this same file in a daughter process
-            # to shield us from the os._exit at the end of the daemonization
-            # process
-            invocation = '"' + sys.executable + '" ' + \
-                         '"' + os.path.abspath(__file__) + '"'
-            worker = None
-            
-            try:
-                # Create the actual worker
-                worker = subprocess.Popen(
-                    invocation,
-                    # We're passing args via environment vars.
-                    env = worker_env,
-                )
-                
-                # Wait a moment for the daemon to show up
-                time.sleep(.5)
-                
-                # Now read the res_path if it's available
-                try:
-                    with open(res_path, 'r') as res:
-                        response = res.read()
-                
-                except (IOError, OSError) as exc:
-                    raise AssertionError from exc
-                    
-                # Make sure the token matches
-                try:
-                    self.assertEqual(int(response), token)
-                except:
-                    print(response)
-                    raise
-                    
-                # Make sure the pid file exists
-                self.assertTrue(os.path.exists(pid_file))
-                
-                # Now read the check_path if it's available
-                try:
-                    with open(check_path, 'r') as f:
-                        check = f.read()
-                
-                except (IOError, OSError) as exc:
-                    raise AssertionError from exc
-                self.assertEqual(int(check), check_seed)
-                    
-                # Now hold off just a moment and then make sure the pid is 
-                # cleaned up successfully. Note that this timing is dependent
-                # upon the child process.
-                time.sleep(5)
-                self.assertFalse(os.path.exists(pid_file))
-                
-                # And verify the check file was not overwritten either
-                try:
-                    with open(check_path, 'r') as f:
-                        check = f.read()
-                
-                except (IOError, OSError) as exc:
-                    raise AssertionError from exc
-                self.assertEqual(int(check), check_seed)
-                
-                
-            # Terminate the worker if it remains.
-            finally:
-                if worker is not None and worker.returncode is None:
-                    worker.terminate()
         
 
 if __name__ == "__main__":
-    if '__TESTWORKER__' in os.environ:
-        try:
-            pid_file = os.environ['__WORKER_PIDFILE__']
-            token = int(os.environ['__WORKER_TOKEN__'])
-            res_path = os.environ['__WORKER_RESPATH__']
-            check_path = os.environ['__WORKER_CHECKPATH__']
-            check_seed = int(os.environ['__WORKER_CHECKSEED__'])
-            childproc_daemonizer(
-                pid_file, 
-                token, 
-                res_path, 
-                check_path, 
-                check_seed
-            )
-        except:
-            with open(res_path,'w') as f:
-                f.write(''.join(traceback.format_exc()))
-            raise
-            
-    else:
-        unittest.main()
+    unittest.main()

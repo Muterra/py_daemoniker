@@ -60,6 +60,32 @@ from daemoniker._daemonize_common import _acquire_pidfile
 import _fixtures
 
 
+def childproc_daemonizer(pid_file, token, res_path, check_path, check_seed):
+    try:
+        with Daemonizer() as (is_setup, daemonize):
+            if is_setup:
+                # It should only exist if we run is_setup twice.
+                if os.path.exists(check_path):
+                    check_seed = 9999
+                
+                with open(check_path, 'w') as f:
+                    f.write(str(check_seed) + '\n')
+                    
+            token, res_path = daemonize(pid_file, token, res_path)
+            
+            with open(res_path, 'w') as f:
+                f.write(str(token) + '\n')
+                
+            # Wait a moment so that the parent can check our PID file
+            time.sleep(1)
+    except:
+        logging.error(
+            'Failure writing token w/ traceback: \n' + 
+            ''.join(traceback.format_exc())
+        )
+        raise
+
+
 def childproc_daemon(pid_file, token, res_path):
     ''' The test daemon quite simply daemonizes itself, does some stuff 
     to confirm its existence, waits for a signal to die, and then dies.
@@ -415,6 +441,90 @@ class Deamonizing_test(unittest.TestCase):
             # happen to remove the pid file. However, we're deamonized now, 
             # so this shouldn't affect the parent.
             raise SystemExit()
+                
+    def test_context_manager(self):
+        ''' Test the context manager. Should produce same results on
+        Windows and Unix, but still needs to be run on both.
+        '''
+        with tempfile.TemporaryDirectory() as dirname:
+            pid_file = dirname + '/testpid.pid'
+            token = 2718282
+            check_seed = 3179
+            res_path = dirname + '/response.txt'
+            # Check path is there to ensure that setup code only runs once
+            check_path = dirname + '/check.txt'
+            
+            pid = os.fork()
+            
+            # Parent process
+            if pid != 0:
+                # Wait a moment for the daemon to show up
+                time.sleep(.5)
+                
+                # Now read the res_path if it's available
+                try:
+                    with open(res_path, 'r') as res:
+                        response = res.read()
+                
+                except (IOError, OSError) as exc:
+                    raise AssertionError from exc
+                    
+                # Make sure the token matches
+                try:
+                    self.assertEqual(int(response), token)
+                except:
+                    print(response)
+                    raise
+                    
+                # Make sure the pid file exists
+                self.assertTrue(os.path.exists(pid_file))
+                
+                # Now read the check_path if it's available
+                try:
+                    with open(check_path, 'r') as f:
+                        check = f.read()
+                
+                except (IOError, OSError) as exc:
+                    raise AssertionError from exc
+                self.assertEqual(int(check), check_seed)
+                    
+                # Now hold off just a moment and then make sure the pid is 
+                # cleaned up successfully. Note that this timing is dependent
+                # upon the child process.
+                time.sleep(5)
+                self.assertFalse(os.path.exists(pid_file))
+                
+                # And verify the check file was not overwritten either
+                try:
+                    with open(check_path, 'r') as f:
+                        check = f.read()
+                
+                except (IOError, OSError) as exc:
+                    raise AssertionError from exc
+                self.assertEqual(int(check), check_seed)
+                
+            # Child process
+            else:
+                try:
+                    childproc_daemonizer(
+                        pid_file, 
+                        token, 
+                        res_path, 
+                        check_path, 
+                        check_seed
+                    )
+                except:
+                    with open(res_path,'w') as f:
+                        f.write(''.join(traceback.format_exc()))
+                    raise
+                finally:
+                    # Unceremoniously tell everything to fuck off. Full stop.
+                    # Sorry, I'm in a bad mood. Someone bailed on me and I was
+                    # really looking forward to seeing them, so here we are,
+                    # writing little meaningless comments to fill the gaping
+                    # emptiness where my sometimes semi-sarcastic soul should
+                    # be
+                    os._exit()
         
 
 if __name__ == "__main__":

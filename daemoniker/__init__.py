@@ -47,6 +47,11 @@ __all__ = [
     'Daemonizer',
     'daemonize',
     'SignalHandler1',
+    'IGNORE_SIGNAL',
+    'send',
+    'SIGINT',
+    'SIGTERM',
+    'SIGABRT',
 ]
 
 
@@ -57,6 +62,13 @@ __all__ = [
 # Submodules
 from . import exceptions
 from . import utils
+
+from ._signals_common import IGNORE_SIGNAL
+from ._signals_common import send
+
+from .exceptions import SIGINT
+from .exceptions import SIGTERM
+from .exceptions import SIGABRT
 
 # Add in toplevel stuff
 from .utils import platform_specificker
@@ -73,9 +85,13 @@ if platform_switch == 'unix':
     from ._daemonize_unix import Daemonizer
     from ._daemonize_unix import daemonize
     
+    from ._signals_unix import SignalHandler1
+    
 elif platform_switch == 'windows':
     from ._daemonize_windows import Daemonizer
     from ._daemonize_windows import daemonize
+    
+    from ._signals_windows import SignalHandler1
     
 else:
     raise RuntimeError(
