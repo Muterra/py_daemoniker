@@ -26,7 +26,7 @@ before-install:
   - source venv/bin/activate
   
 install:
-  - pip install . test
+  - pip3 install . test
 script: python3 tests/supervisor.py
 branches:
   only:
