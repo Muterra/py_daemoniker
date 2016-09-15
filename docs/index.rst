@@ -4,10 +4,10 @@ Daemoniker: cross-platform Python daemonization tools
 What is Daemoniker?
 -------------------------------------------------------------------------------
 
-Daemoniker provides a cross-platform Python API for running Python code as
-a daemon. On Unix, it uses a standard double-fork procedure; on Windows, it
-creates an independent subprocess for ``pythonw.exe`` that exists independently
-of the initiating process.
+Daemoniker provides a cross-platform Python API for running and signaling
+daemonized Python code. On Unix, it uses a standard double-fork procedure; on
+Windows, it creates an separate subprocess for ``pythonw.exe`` that exists
+independently of the initiating process.
 
 Daemoniker also provides several utility tools for the resulting daemons. In
 particular, it includes cross-platform signaling capability for the created
@@ -16,14 +16,44 @@ daemons.
 Example usage
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     
-Insert sample usage here, because that's sorta the whole point of this section:
+At the beginning of your script, invoke daemonization through the
+``daemoniker.Daemonizer`` context manager::
 
-.. code-block:: python
+    from daemoniker import Daemonizer
+    
+    with Daemonizer() as (is_setup, daemonize):
+        if is_setup:
+            # This code is run before daemonization.
+            do_things_here()
+            
+        # We need to explicitly pass resources to the daemon; other variables
+        # may not be correct    
+        my_arg1, my_arg2 = daemonize(path_to_pid_file, my_arg1, my_arg2)
+    
+    # We are now daemonized.
+    code_continues_here()
+    
+Signal handling works through the same ``path_to_pid_file``::
 
-    >>> obj += ' Welcome to Hypergolix.'
-    >>> obj.hgx_push_threadsafe()
-    >>> obj
-    <JsonProxy to 'Hello world! Welcome to Hypergolix.' at Ghid('AdGI5by1-Ppf0ymF26R37waIZnYADnPht5rZqLSDAmD0kV1ax94Yan_9mdd93-8i89QjDeIjBZOQhZxeG5O3HO8=')>
+    from daemoniker import SignalHandler1
+    
+    # Create a signal handler that uses the daemoniker default handlers for
+    # ``SIGINT``, ``SIGTERM``, and ``SIGABRT``
+    sighandler = SignalHandler1(path_to_pid_file)
+    sighandler.start()
+    
+    # Or, define your own handlers, even after starting signal handling
+    def handle_sigint(signum):
+        print('SIGINT received.')
+    sighandler.sigint = handle_sigint
+    
+These processes can then be sent signals from other processes::
+
+    from daemoniker import send
+    from daemoniker import SIGINT
+    
+    # Send a SIGINT to a process denoted by a PID file
+    send(path_to_pid_file, SIGINT)
 
 Comparison to ``multiprocessing``, ``subprocess``, etc
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

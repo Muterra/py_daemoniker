@@ -2,10 +2,6 @@ language: python
 env:
   global:
     - CI=true
-# addons:
-#   apt_packages:
-#     - pandoc
-# command to install dependencies
 
 matrix:
   include:
@@ -29,7 +25,9 @@ install: |
   else
       pip install . test
   fi
+  
 script: python tests/supervisor.py
+
 branches:
   only:
     - master
