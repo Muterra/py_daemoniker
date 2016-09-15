@@ -373,7 +373,7 @@ class Deamonizing_test(unittest.TestCase):
                 )
                 
                 # Wait a moment for the daemon to show up
-                time.sleep(.5)
+                time.sleep(.75)
                 
                 # Now read the res_path if it's available
                 try:

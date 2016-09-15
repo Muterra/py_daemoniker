@@ -204,7 +204,7 @@ class Signals_test(unittest.TestCase):
         ''' Test receiving signals.
         '''
         timeout = 1
-        pause = .1
+        pause = .25
         
         events = {
             signal.SIGINT: threading.Event(),

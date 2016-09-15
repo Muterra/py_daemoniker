@@ -156,6 +156,10 @@ def childproc_fratfork_2(res_path_parent, res_path_child):
     else:
         with open(res_path_child, 'w') as f:
             f.write(str(my_pid) + '\n')
+        
+        # Force this to last longer than the parent so it doesn't need to wait
+        # on us.
+        time.sleep(.25)
 
         
 def childproc_filialusurp(umask, chdir, umask_path, sid_path, wdir_path, 
