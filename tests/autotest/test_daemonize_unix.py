@@ -457,7 +457,7 @@ class Deamonizing_test(unittest.TestCase):
             # Child process
             else:
                 _fixtures.__SKIP_ALL_REMAINING__ = True
-                childproc_fratfork(res_path_parent, res_path_child)
+                childproc_fratfork_2(res_path_parent, res_path_child)
                 os._exit(0)
         
     def test_daemonize(self):
