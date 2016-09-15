@@ -12,22 +12,32 @@ matrix:
     - os: linux
       python: 3.5
     
-    - language: generic
-      python: 3.5
-      os: osx
-      env: pyver=3.5 pydist=macpython
+    - os: osx
+      sudo: required
+      language: generic
       
 #  Manually install python on osx
-before-install: 
-  - if [ $pyver != pypy ] && [ $pyver != pypy3 ]; then git clone https://github.com/gappleto97/terryfy; source terryfy/travis_tools.sh; get_python_environment  $pydist $pyver; fi
-  - if [ $pyver == pypy ] || [ $pyver == pypy3 ]; then brew install $pyver; PYTHON_EXE=$pyver; curl $GET_PIP_URL > $DOWNLOADS_SDIR/get-pip.py; sudo $PYTHON_EXE $DOWNLOADS_SDIR/get-pip.py --ignore-installed; PIP_CMD="sudo $PYTHON_EXE -m pip"; export PYTHON_EXE PIP_CMD; fi
-  - $PIP_CMD install virtualenv
-  - virtualenv -p $PYTHON_EXE venv
-  - source venv/bin/activate
+before-install: |
+  if [[ $TRAVIS_OS_NAME == 'osx' ]]; then
+
+      brew update;
+      brew install python3;
+      python3 -m venv venv;
+      source venv/bin/activate;
+      
+  else
+      # Install some custom requirements on Linux
+  fi
   
-install:
-  - pip3 install . test
-script: python3 tests/supervisor.py
+install: |
+  if [[ $TRAVIS_OS_NAME == 'osx' ]]; then
+
+      pip install . test
+      
+  else
+      pip install . test
+  fi
+script: python tests/supervisor.py
 branches:
   only:
     - master
