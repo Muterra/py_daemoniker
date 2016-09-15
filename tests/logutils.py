@@ -1,10 +1,8 @@
-'''
-Boilerplate for logging configuration.
-
+''' 
 LICENSING
 -------------------------------------------------
 
-hypergolix: A python Golix client.
+daemoniker: Cross-platform daemonization tools.
     Copyright (C) 2016 Muterra, Inc.
     
     Contributors
@@ -30,7 +28,6 @@ hypergolix: A python Golix client.
     Boston, MA  02110-1301 USA
 
 ------------------------------------------------------
-
 '''
 
 

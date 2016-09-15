@@ -226,7 +226,7 @@ class SignalHandler1(_SighandlerCore):
         python_path = sys.executable
         python_path = os.path.abspath(python_path)
         worker_cmd = ('"' + python_path + '" -m ' + 
-                      'hypergolix._daemonize_windows')
+                      'daemoniker._daemonize_windows')
         worker_env = {**_get_clean_env(), '__CREATE_SIGHANDLER__': 'True'}
         
         # Iterate until we're reaped by the main thread exiting.
