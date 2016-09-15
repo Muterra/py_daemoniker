@@ -32,6 +32,7 @@ install:
   # We need wheel installed to build wheels
   - "%PYTHON%\\python.exe -m pip install wheel"
   # by default, all script lines are interpreted as batch
+  - "%PYTHON%\\python.exe -m pip install psutil"
   - "%PYTHON%\\python.exe -m pip install ."
 
 # to run your custom scripts instead of automatic tests
