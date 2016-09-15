@@ -449,8 +449,6 @@ class Deamonizing_test(unittest.TestCase):
                 # Wait to ensure shutdown of other process.
                 # Ensure no zombies. See os.waitpid manpage.
                 os.waitpid(inter_pid, 0)
-                # Wait for the intermediate process to clear (don't os.WNOHANG)
-                os.waitpid(-1, 0)
             
                 # Make sure the intermediate process is dead.
                 with self.assertRaises(OSError):
