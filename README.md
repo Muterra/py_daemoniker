@@ -1,6 +1,7 @@
 # What is Daemoniker?
 
 [![Build Status](https://travis-ci.org/Muterra/py_daemoniker.svg?branch=master)](https://travis-ci.org/Muterra/py_daemoniker)
+[![Build status](https://ci.appveyor.com/api/projects/status/h07tux1oop0gw989?svg=true&passingText=Windows%20-%20👍&pendingText=Windows%20-%20pending&failingText=master%20-%20👎)](https://ci.appveyor.com/project/Badg/py-daemoniker)
 
 Daemoniker provides a cross-platform Python API for running and signaling
 daemonized Python code. On Unix, it uses a standard double-fork procedure; on
