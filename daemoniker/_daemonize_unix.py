@@ -38,6 +38,8 @@ This was written with heavy consultation of the following resources:
     David Mytton, unknown, et al: A simple daemon in Python
         http://www.jejik.com/articles/2007/02/
         a_simple_unix_linux_daemon_in_python/www.boxedice.com
+    Andrew Gierth, Unix programming FAQ v1.37
+        http://www.faqs.org/faqs/unix-faq/programmer/faq/
     
 '''
 
@@ -109,26 +111,45 @@ class Daemonizer:
             this_will_not_be_run_on_unix()
             
         *args = daemonize(*daemonizer_args, *args)
-    ''' 
+    '''
+    def __init__(self):
+        self._is_parent = None
+        
+    def _daemonize(self, *args, **kwargs):
+        ret_vec = daemonize(*args, **kwargs, _exit_caller=False)
+        self._is_parent = ret_vec[0]
+        return ret_vec
+        
     def __enter__(self):
         # This will always only be entered by the parent.
-        # This will always only be exited by the child.
-        return True, daemonize
+        return True, self._daemonize
         
     def __exit__(self, exc_type, exc_value, exc_tb):
         ''' Exit doesn't really need to do any cleanup. But, it's needed
         for context managing.
         '''
         # This will always only be entered by the parent.
-        # This will always only be exited by the child.
-        pass
+        if self._is_parent is None:
+            raise RuntimeError('Context manager was inappropriately exited.')
+            
+        # os._exit for the parent, so no cleanup
+        elif self._is_parent:
+            os._exit(0)
+            
+        # This will always only be FULLY exited by the child.
+        # Normal return for the child
+        else:
+            return
 
             
-def _fratricidal_fork():
+def _fratricidal_fork(have_mercy=False):
     ''' Fork the current process, and immediately exit the parent.
     
     OKAY TECHNICALLY THIS WOULD BE PARRICIDE but it just doesn't 
     have the same ring to it.
+    
+    have_mercy allows the parent to persist for a little while, but it
+    must call os._exit(0) on its own later.
     '''
     try:
         # This will create a clone of our process. The clone will get zero
@@ -142,13 +163,24 @@ def _fratricidal_fork():
         )
         raise SystemExit('Failed to fork.') from exc
     
-    # If PID != 0, this is the parent process, and we should IMMEDIATELY 
+    # If PID != 0, this is the parent process, and we should immediately 
     # die.
+    # Note that python handles forking failures for us.
     if pid != 0:
-        # Exit parent without cleanup.
-        os._exit(0)
+        # D-d-d-d-d-anger zoooone! But srsly, this has a lot of caveats emptor
+        if have_mercy:
+            # Return True for is_parent
+            return True
+            
+        # Standard behavior is immediately leave.
+        else:
+            # Exit parent without cleanup.
+            os._exit(0)
+            
+    # Return False for is_parent
     else:
         logger.info('Fork successful.')
+        return False
 
         
 def _filial_usurpation(chdir, umask):
@@ -214,7 +246,7 @@ def _autoclose_files(shielded=None, fallback_limit=1024):
 def daemonize(pid_file, *args, chdir=None, stdin_goto=None, stdout_goto=None, 
               stderr_goto=None, umask=0o027, shielded_fds=None, 
               fd_fallback_limit=1024, success_timeout=30, 
-              strip_cmd_args=False):
+              strip_cmd_args=False, _exit_caller=True):
     ''' Performs a classic unix double-fork daemonization. Registers all
     appropriate cleanup functions.
     
@@ -226,6 +258,11 @@ def daemonize(pid_file, *args, chdir=None, stdin_goto=None, stdout_goto=None,
         2. will prevent group from having write permission
         3. will prevent other from having any permission
     See https://en.wikipedia.org/wiki/Umask
+    
+    _exit_caller=True makes the parent (grandparent) process immediately
+    exit. If set to False, THE GRANDPARENT MUST CALL os._exit(0) UPON
+    ITS FINISHING. This is a really sticky situation, and should be
+    avoided outside of the shipped context manager.
     '''
     if not _SUPPORTED_PLATFORM:
         raise OSError(
@@ -286,8 +323,8 @@ def daemonize(pid_file, *args, chdir=None, stdin_goto=None, stdout_goto=None,
     # Note that because fratricidal fork is calling os._exit(), our parents
     # will never call cleanup.
     
-    # Now fork the toplevel parent, killing it.
-    _fratricidal_fork()
+    # Now fork the toplevel parent, killing it (unless _exit_caller was False)
+    is_parent = _fratricidal_fork(have_mercy=(not _exit_caller))
     # We're now running from within the child. We need to detach ourself 
     # from the parent environment.
     _filial_usurpation(chdir, umask)
@@ -299,4 +336,19 @@ def daemonize(pid_file, *args, chdir=None, stdin_goto=None, stdout_goto=None,
     _autoclose_files(shielded_fds, fd_fallback_limit)
     _redirect_stds(stdin_goto, stdout_goto, stderr_goto)
     
-    return args
+    # If is_parent, we know, for sure, that _exit_caller was False
+    if is_parent:
+        # Reset args to be an equivalent expansion of *[None]s to prevent
+        # accidentally trying to modify them in the parent
+        args = [None] * len(args)
+        # is_parent, *args
+        return [True, *args]
+        
+    # If it wasn't the parent, we still need to know if _exit_caller was False
+    elif not _exit_caller:
+        # is_parent, *args
+        return [False, *args]
+        
+    # It's the child, and things are normal.
+    else:
+        return args

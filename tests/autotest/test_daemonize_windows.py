@@ -63,7 +63,8 @@ from daemoniker._daemonize_windows import _fork_worker
 import _fixtures
 
 
-def childproc_daemonizer(pid_file, token, res_path, check_path, check_seed):
+def childproc_daemonizer(pid_file, token, res_path, check_path, check_seed,
+                         parent_pid_file):
     try:
         with Daemonizer() as (is_setup, daemonize):
             if is_setup:
@@ -74,13 +75,19 @@ def childproc_daemonizer(pid_file, token, res_path, check_path, check_seed):
                 with open(check_path, 'w') as f:
                     f.write(str(check_seed) + '\n')
                     
-            token, res_path = daemonize(pid_file, token, res_path)
+            is_parent, token, res_path = daemonize(pid_file, token, res_path)
             
-            with open(res_path, 'w') as f:
-                f.write(str(token) + '\n')
+            if is_parent:
+                with open(parent_pid_file, 'w') as f:
+                    f.write(str(os.getpid()) + '\n')
                 
-            # Wait a moment so that the parent can check our PID file
-            time.sleep(1)
+            else:
+                with open(res_path, 'w') as f:
+                    f.write(str(token) + '\n')
+                    
+                # Wait a moment so that the grandparent can check our PID file
+                time.sleep(1)
+                
     except:
         logging.error(
             'Failure writing token w/ traceback: \n' + 
@@ -186,6 +193,7 @@ class Deamonizing_test(unittest.TestCase):
             stdin_goto = None
             stdout_goto = None
             stderr_goto = None
+            _exit_caller = True
             args = ('hello world', 'I am tired', 'hello Tired, I am Dad.')
             
             _fork_worker(
@@ -197,6 +205,7 @@ class Deamonizing_test(unittest.TestCase):
                 stdin_goto,
                 stdout_goto,
                 stderr_goto,
+                _exit_caller,
                 args
             )
             
@@ -209,7 +218,8 @@ class Deamonizing_test(unittest.TestCase):
             self.assertEqual(payload[3], stdin_goto)
             self.assertEqual(payload[4], stdout_goto)
             self.assertEqual(payload[5], stderr_goto)
-            self.assertEqual(payload[6:], args)
+            self.assertEqual(payload[6], _exit_caller)
+            self.assertEqual(payload[7:], args)
         
     def test_daemonize2(self):
         ''' Test respawning. Platform-specific.
@@ -237,10 +247,11 @@ class Deamonizing_test(unittest.TestCase):
                 stdin_goto = os.devnull
                 stdout_goto = os.devnull
                 stderr_goto = os.devnull
+                _exit_caller = True
                 args = ('hello world', 'I am tired', 'hello Tired, I am Dad.')
                 
                 pkg = (parent, pid_file, chdir, stdin_goto, stdout_goto, 
-                       stderr_goto) + args
+                       stderr_goto, _exit_caller) + args
                 
                 with open(ns_path, 'wb') as f:
                     pickle.dump(pkg, f, protocol=-1)
@@ -333,6 +344,7 @@ class Deamonizing_test(unittest.TestCase):
             res_path = dirname + '/response.txt'
             # Check path is there to ensure that setup code only runs once
             check_path = dirname + '/check.txt'
+            parent_pid_file = dirname + '/parentpid.pid'
             
             worker_env = {
                 **os.environ,
@@ -342,6 +354,7 @@ class Deamonizing_test(unittest.TestCase):
                 '__WORKER_RESPATH__': res_path,
                 '__WORKER_CHECKPATH__': check_path,
                 '__WORKER_CHECKSEED__': str(check_seed),
+                '__WORKER_PARENTPID__': parent_pid_file,
             }
             
             # Create another instance of this same file in a daughter process
@@ -388,6 +401,14 @@ class Deamonizing_test(unittest.TestCase):
                 except (IOError, OSError) as exc:
                     raise AssertionError from exc
                 self.assertEqual(int(check), check_seed)
+                
+                # Now make sure the parent pid file exists, and that it reads
+                # the grandparent pid, and then remove it.
+                self.assertTrue(os.path.exists(parent_pid_file))
+                with open(parent_pid_file, 'r') as f:
+                    grandparent_pid = int(f.read())
+                self.assertEqual(grandparent_pid, worker.pid)
+                # Don't need to cleanup because it's in a tempdir
                     
                 # Now hold off just a moment and then make sure the pid is 
                 # cleaned up successfully. Note that this timing is dependent
@@ -425,12 +446,14 @@ if __name__ == "__main__":
             res_path = os.environ['__WORKER_RESPATH__']
             check_path = os.environ['__WORKER_CHECKPATH__']
             check_seed = int(os.environ['__WORKER_CHECKSEED__'])
+            parent_pid_file = os.environ['__WORKER_PARENTPID__']
             childproc_daemonizer(
                 pid_file, 
                 token, 
                 res_path, 
                 check_path, 
-                check_seed
+                check_seed,
+                parent_pid_file
             )
         except:
             with open(res_path,'w') as f:

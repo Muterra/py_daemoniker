@@ -31,3 +31,4 @@ script: python tests/supervisor.py
 branches:
   only:
     - master
+    - develop

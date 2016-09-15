@@ -60,7 +60,8 @@ from daemoniker._daemonize_common import _acquire_pidfile
 import _fixtures
 
 
-def childproc_daemonizer(pid_file, token, res_path, check_path, check_seed):
+def childproc_daemonizer(pid_file, token, res_path, check_path, check_seed,
+                         parent_pid_file):
     try:
         with Daemonizer() as (is_setup, daemonize):
             if is_setup:
@@ -71,13 +72,18 @@ def childproc_daemonizer(pid_file, token, res_path, check_path, check_seed):
                 with open(check_path, 'w') as f:
                     f.write(str(check_seed) + '\n')
                     
-            token, res_path = daemonize(pid_file, token, res_path)
+            is_parent, token, res_path = daemonize(pid_file, token, res_path)
             
-            with open(res_path, 'w') as f:
-                f.write(str(token) + '\n')
+            if is_parent:
+                with open(parent_pid_file, 'w') as f:
+                    f.write(str(os.getpid()) + '\n')
                 
-            # Wait a moment so that the parent can check our PID file
-            time.sleep(1)
+            else:
+                with open(res_path, 'w') as f:
+                    f.write(str(token) + '\n')
+                    
+                # Wait a moment so that the grandparent can check our PID file
+                time.sleep(1)
     except:
         logging.error(
             'Failure writing token w/ traceback: \n' + 
@@ -457,6 +463,7 @@ class Deamonizing_test(unittest.TestCase):
         res_path = dirname + '/response.txt'
         # Check path is there to ensure that setup code only runs once
         check_path = dirname + '/check.txt'
+        parent_pid_file = dirname + '/parentpid.pid'
             
         pid = os.fork()
         
@@ -492,6 +499,14 @@ class Deamonizing_test(unittest.TestCase):
                 except (IOError, OSError) as exc:
                     raise AssertionError from exc
                 self.assertEqual(int(check), check_seed)
+                
+                # Now make sure the parent pid file exists, and that it reads
+                # the grandparent pid, and then remove it.
+                self.assertTrue(os.path.exists(parent_pid_file))
+                with open(parent_pid_file, 'r') as f:
+                    grandparent_pid = int(f.read())
+                self.assertEqual(grandparent_pid, pid)
+                # Don't need to cleanup because it's in a tempdir
                     
                 # Now hold off just a moment and then make sure the pid is 
                 # cleaned up successfully. Note that this timing is dependent
@@ -521,7 +536,8 @@ class Deamonizing_test(unittest.TestCase):
                     token, 
                     res_path, 
                     check_path, 
-                    check_seed
+                    check_seed,
+                    parent_pid_file
                 )
             except:
                 with open(res_path,'w') as f:

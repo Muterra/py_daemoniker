@@ -12,6 +12,7 @@ branches:
   # whitelist
   only:
     - master
+    - develop
     
 # set git clone depth. clone entire repository history if not defined
 clone_depth: 5
