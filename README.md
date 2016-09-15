@@ -14,6 +14,14 @@ daemons.
 
 **Full documentation is available [here](https://daemoniker.readthedocs.io/en/latest/).**
 
+## Installing
+
+Daemoniker requires **Python 3.5** or higher.
+
+```
+    pip install daemoniker
+```
+
 ## Why daemonization?
 
 Python on Windows ships with ``pythonw.exe``, which provides a "GUI app with no

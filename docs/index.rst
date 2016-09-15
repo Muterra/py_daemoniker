@@ -13,6 +13,15 @@ Daemoniker also provides several utility tools for the resulting daemons. In
 particular, it includes cross-platform signaling capability for the created
 daemons.
 
+Installing
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Daemoniker requires **Python 3.5** or higher.
+
+.. code-block:: console
+
+    pip install daemoniker
+
 Example usage
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     
