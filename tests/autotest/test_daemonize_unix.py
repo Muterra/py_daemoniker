@@ -138,6 +138,24 @@ def childproc_fratfork(res_path):
     my_pid = os.getpid()
     with open(res_path, 'w') as f:
         f.write(str(my_pid) + '\n')
+        
+        
+def childproc_fratfork_2(res_path_parent, res_path_child):
+    # Fork again, killing the intermediate, but do some work in the middle.
+    is_parent = _fratricidal_fork(have_mercy=True)
+    
+    my_pid = os.getpid()
+    
+    if is_parent:
+        try:
+            with open(res_path_parent, 'w') as f:
+                f.write(str(my_pid) + '\n')
+        finally:
+            os._exit(0)
+        
+    else:
+        with open(res_path_child, 'w') as f:
+            f.write(str(my_pid) + '\n')
 
         
 def childproc_filialusurp(umask, chdir, umask_path, sid_path, wdir_path, 
@@ -387,6 +405,59 @@ class Deamonizing_test(unittest.TestCase):
             else:
                 _fixtures.__SKIP_ALL_REMAINING__ = True
                 childproc_fratfork(res_path)
+                os._exit(0)
+        
+    def test_frat_fork_2(self):
+        ''' Test "fratricidal" (okay, parricidal) forking, with mercy
+        enabled (so parent doesn't immediately die). Platform-specific.
+        '''
+        with tempfile.TemporaryDirectory() as dirname:
+            res_path_parent = dirname + '/response.txt'
+            res_path_child = dirname + '/response_child.txt'
+
+            # Multiprocessing has not been working for this.
+            inter_pid = os.fork()
+            
+            # Parent process
+            if inter_pid != 0:
+                # Give the child a moment to start up.
+                time.sleep(.5)
+                
+                try:
+                    with open(res_path_parent, 'r') as res:
+                        response_parent = res.read()
+                
+                except (IOError, OSError) as exc:
+                    raise AssertionError from exc
+                
+                try:
+                    with open(res_path_child, 'r') as res:
+                        response_child = res.read()
+                
+                except (IOError, OSError) as exc:
+                    raise AssertionError from exc
+                    
+                child_pid = int(response_child)
+                parent_pid = int(response_parent)
+                self.assertNotEqual(inter_pid, child_pid)
+                self.assertEqual(inter_pid, parent_pid)
+                
+                # Wait to ensure shutdown of other process.
+                # Ensure no zombies. See os.waitpid manpage.
+                os.waitpid(inter_pid, 0)
+                # Wait for the intermediate process to clear (don't os.WNOHANG)
+                os.waitpid(-1, 0)
+            
+                # Make sure the intermediate process is dead.
+                with self.assertRaises(OSError):
+                    # Send it a signal to check existence (os.kill is badly 
+                    # named)
+                    os.kill(inter_pid, 0)
+                
+            # Child process
+            else:
+                _fixtures.__SKIP_ALL_REMAINING__ = True
+                childproc_fratfork(res_path_parent, res_path_child)
                 os._exit(0)
         
     def test_daemonize(self):
