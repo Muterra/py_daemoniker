@@ -30,8 +30,8 @@ before-install: |
   fi
   
 install:
-  - pip install . test
-script: python tests/supervisor.py
+  - pip3 install . test
+script: python3 tests/supervisor.py
 branches:
   only:
     - master
