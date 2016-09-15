@@ -324,17 +324,8 @@ def daemonize(pid_file, *args, chdir=None, stdin_goto=None, stdout_goto=None,
     # will never call cleanup.
     
     # Now fork the toplevel parent, killing it (unless _exit_caller was False)
-    is_parent = _fratricidal_fork(have_mercy=(not _exit_caller))
-    # We're now running from within the child. We need to detach ourself 
-    # from the parent environment.
-    _filial_usurpation(chdir, umask)
-    # Okay, re-fork (no zombies!) and continue business as usual
-    _fratricidal_fork()
-    
-    # Do some important housekeeping
-    _write_pid(locked_pidfile)
-    _autoclose_files(shielded_fds, fd_fallback_limit)
-    _redirect_stds(stdin_goto, stdout_goto, stderr_goto)
+    keep_parent = not bool(_exit_caller)
+    is_parent = _fratricidal_fork(have_mercy=keep_parent)
     
     # If is_parent, we know, for sure, that _exit_caller was False
     if is_parent:
@@ -344,11 +335,23 @@ def daemonize(pid_file, *args, chdir=None, stdin_goto=None, stdout_goto=None,
         # is_parent, *args
         return [True, *args]
         
-    # If it wasn't the parent, we still need to know if _exit_caller was False
-    elif not _exit_caller:
-        # is_parent, *args
-        return [False, *args]
-        
-    # It's the child, and things are normal.
+    # Okay, we're the child.
     else:
-        return args
+        # We need to detach ourself from the parent environment.
+        _filial_usurpation(chdir, umask)
+        # Okay, re-fork (no zombies!) and continue business as usual
+        _fratricidal_fork()
+        
+        # Do some important housekeeping
+        _write_pid(locked_pidfile)
+        _autoclose_files(shielded_fds, fd_fallback_limit)
+        _redirect_stds(stdin_goto, stdout_goto, stderr_goto)
+    
+        # We still need to adapt our return based on _exit_caller
+        if not _exit_caller:
+            # is_parent, *args
+            return [False, *args]
+            
+        # Normal, bare daemonization call
+        else:
+            return args
