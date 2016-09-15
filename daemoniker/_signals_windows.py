@@ -319,7 +319,7 @@ class SignalHandler1(_SighandlerCore):
         try:
             exc = sigs[signum]
         except KeyError:
-            exc = SignalError
+            exc = ReceivedSignal
             
         _sketch_raise_in_main(exc)
     

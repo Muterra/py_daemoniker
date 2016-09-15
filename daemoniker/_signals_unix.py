@@ -230,6 +230,6 @@ class SignalHandler1(_SighandlerCore):
         try:
             exc = sigs[signum]
         except KeyError:
-            exc = SignalError
+            exc = ReceivedSignal
             
         raise exc()

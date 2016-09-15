@@ -17,7 +17,9 @@ Example usage
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     
 At the beginning of your script, invoke daemonization through the
-``daemoniker.Daemonizer`` context manager::
+``daemoniker.Daemonizer`` context manager:
+
+.. code-block:: python
 
     from daemoniker import Daemonizer
     
@@ -33,7 +35,9 @@ At the beginning of your script, invoke daemonization through the
     # We are now daemonized.
     code_continues_here()
     
-Signal handling works through the same ``path_to_pid_file``::
+Signal handling works through the same ``path_to_pid_file``:
+
+.. code-block:: python
 
     from daemoniker import SignalHandler1
     
@@ -47,7 +51,9 @@ Signal handling works through the same ``path_to_pid_file``::
         print('SIGINT received.')
     sighandler.sigint = handle_sigint
     
-These processes can then be sent signals from other processes::
+These processes can then be sent signals from other processes:
+
+.. code-block:: python
 
     from daemoniker import send
     from daemoniker import SIGINT

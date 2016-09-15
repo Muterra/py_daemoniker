@@ -37,8 +37,9 @@ On Windows, "daemonization" with Daemoniker performs the following steps:
 6.  Change current working directory.
 7.  Write its process handle to the PID file and register the file's cleanup
     for program exit.
-8.  Extract the old namespace.
-9.  Return the old namespace into the resumed "daemonized" process and allow
+8.  Redirect ``stdin``, ``stdout``, and ``stderr``.
+9.  Extract the old namespace.
+10. Return the old namespace into the resumed "daemonized" process and allow
     the original process to exit.
     
 .. warning::

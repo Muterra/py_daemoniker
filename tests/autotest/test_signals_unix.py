@@ -93,7 +93,7 @@ class Signals_test(unittest.TestCase):
     def test_default_handler(self):
         ''' Test the default signal handler.
         '''
-        with self.assertRaises(SignalError):
+        with self.assertRaises(ReceivedSignal):
             SignalHandler1._default_handler(-42)
             
         with self.assertRaises(SIGABRT):

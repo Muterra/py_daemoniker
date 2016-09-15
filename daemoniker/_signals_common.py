@@ -79,6 +79,8 @@ def send(pid_file, signal):
     '''
     if isinstance(signal, ReceivedSignal):
         signum = signal.SIGNUM
+    elif isinstance(signal, type) and issubclass(signal, ReceivedSignal):
+        signum = signal.SIGNUM
     else:
         signum = int(signal)
     
