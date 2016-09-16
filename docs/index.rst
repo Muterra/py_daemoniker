@@ -32,16 +32,24 @@ At the beginning of your script, invoke daemonization through the
 
     from daemoniker import Daemonizer
     
-    with Daemonizer() as (is_setup, daemonize):
+    with Daemonizer() as (is_setup, daemonizer):
         if is_setup:
             # This code is run before daemonization.
             do_things_here()
             
         # We need to explicitly pass resources to the daemon; other variables
         # may not be correct    
-        my_arg1, my_arg2 = daemonize(path_to_pid_file, my_arg1, my_arg2)
+        is_parent, my_arg1, my_arg2 = daemonizer(
+            path_to_pid_file, 
+            my_arg1, 
+            my_arg2
+        )
+        
+        if is_parent:
+            # Run code in the parent after daemonization
+            parent_only_code()
     
-    # We are now daemonized.
+    # We are now daemonized, and the parent just exited.
     code_continues_here()
     
 Signal handling works through the same ``path_to_pid_file``:

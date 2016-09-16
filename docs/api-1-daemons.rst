@@ -1,49 +1,10 @@
 Daemonization API
 ===============================================================================
 
-General Daemoniker usage should follow the following pattern:
-
-.. code-block:: python
-
-    from daemoniker import Daemonizer
-    
-    with Daemonizer() as (is_setup, daemonize):
-        if is_setup:
-            # This code is run before daemonization.
-            do_things_here()
-            
-        # We need to explicitly pass resources to the daemon; other variables
-        # may not be correct    
-        my_arg1, my_arg2 = daemonize(
-            'path/to/pid/file.pid', 
-            my_arg1, 
-            my_arg2,
-            ...,
-            **daemonize_kwargs
-        )
-    
-    # We are now daemonized.
-    code_continues_here()
-    
-When used in this manner, the ``Daemonizer`` context manager will return a
-boolean ``is_setup`` and the :func:`daemonize` function.
-    
-.. note::
-    
-    Do not include an ``else`` clause after ``is_setup``. It will not be run
-    on Unix:
-
-    .. code-block:: python
-
-        from daemoniker import Daemonizer
-        
-        with Daemonizer() as (is_setup, daemonize):
-            if is_setup:
-                # This code is run before daemonization.
-                do_things_here()
-            else:
-                # This code will not run on Unix systems.
-                do_no_things_here()
+Simple daemonization may be performed by directly calling the :func:`daemonize`
+funtion. In general, it should be the first thing called by your code (except
+perhaps ``import`` statements, global declarations, and so forth). If you need
+to do anything more complicated, use the :class:`Daemonizer` context manager.
                 
 .. function:: daemonize(pid_file, *args, chdir=None, stdin_goto=None, \
                         stdout_goto=None, stderr_goto=None, umask=0o027, \
@@ -53,14 +14,15 @@ boolean ``is_setup`` and the :func:`daemonize` function.
     .. versionadded:: 0.1
     
     The function used to actually perform daemonization. It may be called
-    directly, but is intended to be used within the ``Daemonizer`` context
-    manager, as detailed above.
+    directly, but is intended to be used within the :class:`Daemonizer` context
+    manager.
     
     .. warning::
     
         When used directly, all code prior to ``daemonize()`` will be repeated
-        by the daemonized process. It is best to limit all pre-``daemonize``
-        code to import statements. If you want to run setup code, use the
+        by the daemonized process on Windows systems. It is best to limit all
+        pre-``daemonize`` code to import statements, global declarations, etc.
+        If you want to run specialized setup code, use the :class:`Daemonizer`
         context manager.
     
     .. note::
@@ -106,3 +68,119 @@ boolean ``is_setup`` and the :func:`daemonize` function.
 
         >>> from daemoniker import daemonize
         >>> daemonize('pid.pid')
+        
+.. class:: Daemonizer()
+
+    .. versionadded:: 0.1
+    
+    A context manager for more advanced daemonization. Entering the context
+    assigns a tuple of (boolean ``is_setup``, callable ``daemonizer``) to the
+    ``with Daemonizer() as target:`` target.
+
+    .. code-block:: python
+
+        from daemoniker import Daemonizer
+        
+        with Daemonizer() as (is_setup, daemonizer):
+            if is_setup:
+                # This code is run before daemonization.
+                do_things_here()
+                
+            # We need to explicitly pass resources to the daemon; other variables
+            # may not be correct    
+            is_parent, my_arg1, my_arg2 = daemonizer(
+                'path/to/pid/file.pid', 
+                my_arg1, 
+                my_arg2,
+                ...,
+                **daemonize_kwargs
+            )
+            
+            # This allows us to run parent-only post-daemonization code
+            if is_parent:
+                run_some_parent_code_here()
+        
+        # We are now daemonized and the parent has exited.
+        code_continues_here(my_arg1, my_arg2)
+        
+    When used in this manner, the :class:`Daemonizer` context manager will
+    return a boolean ``is_setup`` and a wrapped :func:`daemonize` function.
+        
+    .. note::
+        
+        Do not include an ``else`` clause after ``is_setup``. It will not be
+        run on Unix:
+
+        .. code-block:: python
+
+            from daemoniker import Daemonizer
+            
+            with Daemonizer() as (is_setup, daemonizer):
+                if is_setup:
+                    # This code is run before daemonization.
+                    do_things_here()
+                else:
+                    # This code will never run on Unix systems.
+                    do_no_things_here()
+                    
+                ...
+                    
+    .. note::
+    
+        To prevent resource contention with the daemonized child, the parent
+        process must be terminated via ``os._exit`` when exiting the context.
+        You must perform any cleanup inside the ``if is_parent:`` block.
+        
+    .. method:: __enter__()
+    
+        Entering the context will return a tuple of:
+        
+        .. code-block:: python
+        
+            with Daemonizer() as (is_setup, daemonizer):
+            
+        ``is_setup`` is a ``bool`` that will be True when code is running in
+        the parent (pre-daemonization) process.
+        
+        ``daemonizer`` wraps :func:`daemonize`, prepending a bool ``is_parent``
+        to its return value. To prevent accidental manipulation of
+        already-passed variables from the parent process, it also replaces
+        them with ``None`` in the parent caller. It is otherwise identical to
+        :func:`daemonize`. For example:
+        
+        .. code-block:: python
+
+            from daemoniker import Daemonizer
+            
+            with Daemonizer() as (is_setup, daemonizer):
+                if is_setup:
+                    my_arg1 = 'foo'
+                    my_arg2 = 'bar'
+        
+                is_parent, my_arg1, my_arg2 = daemonizer(
+                    'path/to/pid/file.pid',
+                    my_arg1,
+                    my_arg2
+                )
+                
+                # This code will only be run in the parent process
+                if is_parent:
+                    # These will return True
+                    my_arg1 == None
+                    my_arg2 == None
+                    
+                # This code will only be run in the daemonized child process
+                else:
+                    # These will return True
+                    my_arg1 == 'foo'
+                    my_arg2 == 'bar'
+                    
+            # The parent has now exited. All following code will only be run in
+            # the daemonized child process.
+            program_continues_here(my_arg1, my_arg2)
+                    
+    .. method:: __exit__()
+    
+        Exiting the context will do nothing in the child. In the parent,
+        leaving the context will initiate a forced termination via ``os._exit``
+        to prevent resource contention with the daemonized child.
