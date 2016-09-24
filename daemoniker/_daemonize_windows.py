@@ -134,9 +134,11 @@ class Daemonizer:
         # This will happen if we used the context manager, but never actually
         # called to daemonize.
         elif not self._daemonize_called:
-            logger.warning('Daemonizer exited without calling daemonize.')
             self._daemonize_called = None
             self._is_parent = None
+            logger.warning('Daemonizer exited without calling daemonize.')
+            # Note that any encountered error will be raise once the context is
+            # departed, so there's no reason to handle or log errors here.
             return
             
         # We called to daemonize, and this is the parent.
