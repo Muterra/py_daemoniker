@@ -81,8 +81,9 @@ def childproc_daemonizer(pid_file, token, res_path, check_path, check_seed,
                 with open(res_path, 'w') as f:
                     f.write(str(token) + '\n')
                     
-                # Wait a moment so that the grandparent can check our PID file
-                time.sleep(1)
+            # Wait a moment so that the grandparent can check our PID file
+            time.sleep(1)
+            
     except:
         logging.error(
             'Failure writing token w/ traceback: \n' +
@@ -611,10 +612,13 @@ class Deamonizing_test(unittest.TestCase):
                     check_seed,
                     parent_pid_file
                 )
+            
             except:
                 with open(res_path,'w') as f:
                     f.write(''.join(traceback.format_exc()))
+                print(''.join(traceback.format_exc()))
                 raise
+            
             finally:
                 # Unceremoniously tell everything to fuck off. Full stop.
                 # Sorry, I'm in a bad mood. Someone bailed on me and I was
