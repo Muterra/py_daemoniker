@@ -1,4 +1,4 @@
-''' 
+'''
 LICENSING
 -------------------------------------------------
 
@@ -7,7 +7,7 @@ daemoniker: Cross-platform daemonization tools.
     
     Contributors
     ------------
-    Nick Badger 
+    Nick Badger
         badg@muterra.io | badg@nickbadger.com | nickbadger.com
 
     This library is free software; you can redistribute it and/or
@@ -21,10 +21,10 @@ daemoniker: Cross-platform daemonization tools.
     Lesser General Public License for more details.
 
     You should have received a copy of the GNU Lesser General Public
-    License along with this library; if not, write to the 
+    License along with this library; if not, write to the
     Free Software Foundation, Inc.,
-    51 Franklin Street, 
-    Fifth Floor, 
+    51 Franklin Street,
+    Fifth Floor,
     Boston, MA  02110-1301 USA
 
 ------------------------------------------------------
@@ -32,31 +32,21 @@ daemoniker: Cross-platform daemonization tools.
 
 # Global dependencies
 import logging
-import traceback
 import os
 import sys
 import time
 import signal
-import pickle
-import base64
 import subprocess
-import multiprocessing
-import shlex
-import tempfile
 import atexit
 import ctypes
 import threading
 
 # Intra-package dependencies
 from .utils import platform_specificker
-from .utils import default_to
 
 from ._daemonize_windows import _get_clean_env
-from ._signals_common import IGNORE_SIGNAL
-from ._signals_common import _noop
 from ._signals_common import _SighandlerCore
 
-from .exceptions import SignalError
 from .exceptions import ReceivedSignal
 from .exceptions import SIGABRT
 from .exceptions import SIGINT
@@ -76,12 +66,11 @@ _SUPPORTED_PLATFORM = platform_specificker(
 # ###############################################
 
 
-import logging
 logger = logging.getLogger(__name__)
 
 # Control * imports.
 __all__ = [
-    # 'Inquisitor', 
+    # 'Inquisitor',
 ]
 
 
@@ -116,7 +105,7 @@ def _sketch_raise_in_main(exc):
     # 1 succeeded
     # > 1 failed
     elif result > 1:
-        ctypes.pythonapi.PyThreadState_SetAsyncExc(target_tid, 0)
+        ctypes.pythonapi.PyThreadState_SetAsyncExc(main_id, 0)
         raise SystemError('Failed to raise in main thread.')
     
     
@@ -148,6 +137,7 @@ class SignalHandler1(_SighandlerCore):
     ''' Signal handling system using a daughter thread and a disposable
     daughter process.
     '''
+    
     def __init__(self, pid_file, sigint=None, sigterm=None, sigabrt=None):
         ''' Creates a signal handler, using the passed callables. None
         will assign the default handler (raise in main). passing
@@ -225,8 +215,8 @@ class SignalHandler1(_SighandlerCore):
         '''
         python_path = sys.executable
         python_path = os.path.abspath(python_path)
-        worker_cmd = ('"' + python_path + '" -m ' + 
-                      'daemoniker._daemonize_windows')
+        worker_cmd = ('"' + python_path + '" -m ' +
+                      'daemoniker._signals_windows')
         worker_env = {**_get_clean_env(), '__CREATE_SIGHANDLER__': 'True'}
         
         # Iterate until we're reaped by the main thread exiting.
@@ -264,14 +254,14 @@ class SignalHandler1(_SighandlerCore):
                     # default handler. Do this each time so that the
                     # SigHandler can be updated while running.
                     signums = {
-                        signal.SIGABRT: self.sigabrt, 
-                        signal.SIGINT: self.sigint, 
+                        signal.SIGABRT: self.sigabrt,
+                        signal.SIGINT: self.sigint,
                         signal.SIGTERM: self.sigterm
                     }
                     try:
                         handler = signums[signum]
                     except KeyError:
-                        handler = _default_handler
+                        handler = self._default_handler
                         
                     handler(signum)
         
@@ -296,7 +286,7 @@ class SignalHandler1(_SighandlerCore):
         '''
         main = threading.main_thread()
         main.join()
-        self.stop()
+        self._stop_nowait()
     
     @staticmethod
     def _default_handler(signum, *args):
@@ -325,11 +315,11 @@ class SignalHandler1(_SighandlerCore):
     
     
 if __name__ == '__main__':
-    ''' Do this so we can support process-based workers using Popen 
+    ''' Do this so we can support process-based workers using Popen
     instead of multiprocessing, which would impose extra requirements
     on whatever code used Windows daemonization to avoid infinite
     looping.
-    ''' 
+    '''
     if '__CREATE_SIGHANDLER__' in os.environ:
         # Use this to create a signal handler.
         _infinite_noop()
