@@ -620,17 +620,14 @@ class Deamonizing_test(unittest.TestCase):
                 raise
             
             finally:
-                # Unceremoniously tell everything to fuck off. Full stop.
-                # Sorry, I'm in a bad mood. Someone bailed on me and I was
-                # really looking forward to seeing them, so here we are,
-                # writing little meaningless comments to fill the gaping
-                # emptiness where my sometimes semi-sarcastic soul should
-                # be
-                # os._exit(0)
-                # Goddammit you've gotta be kidding me, that fails to call the
-                # fucking cleanup, so we can't even do that.
+                # Tell unittest that we're done.
                 _fixtures.__SKIP_ALL_REMAINING__ = True
-                raise SystemExit()
+                # The thing is, it doesn't really make sense to call this. It's
+                # just going to suppress any other errors that get called, and
+                # it's caught by unittest regardless. We can't do os._exit,
+                # because that prevents cleanup by the daemonized child. So
+                # just do nothing beyond skipping all remaining.
+                # raise SystemExit()
         
 
 if __name__ == "__main__":
