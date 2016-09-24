@@ -1,4 +1,4 @@
-''' 
+'''
 LICENSING
 -------------------------------------------------
 
@@ -7,7 +7,7 @@ daemoniker: Cross-platform daemonization tools.
     
     Contributors
     ------------
-    Nick Badger 
+    Nick Badger
         badg@muterra.io | badg@nickbadger.com | nickbadger.com
 
     This library is free software; you can redistribute it and/or
@@ -21,10 +21,10 @@ daemoniker: Cross-platform daemonization tools.
     Lesser General Public License for more details.
 
     You should have received a copy of the GNU Lesser General Public
-    License along with this library; if not, write to the 
+    License along with this library; if not, write to the
     Free Software Foundation, Inc.,
-    51 Franklin Street, 
-    Fifth Floor, 
+    51 Franklin Street,
+    Fifth Floor,
     Boston, MA  02110-1301 USA
 
 ------------------------------------------------------
@@ -35,17 +35,13 @@ import logging
 import traceback
 import os
 import sys
-import time
 import signal
 import pickle
 import base64
 import subprocess
-import multiprocessing
 import shlex
 import tempfile
 import atexit
-import ctypes
-import threading
 
 # Intra-package dependencies
 from .utils import platform_specificker
@@ -54,12 +50,6 @@ from .utils import default_to
 from ._daemonize_common import _redirect_stds
 from ._daemonize_common import _write_pid
 from ._daemonize_common import _acquire_pidfile
-
-from .exceptions import SignalError
-from .exceptions import ReceivedSignal
-from .exceptions import SIGABRT
-from .exceptions import SIGINT
-from .exceptions import SIGTERM
 
 _SUPPORTED_PLATFORM = platform_specificker(
     linux_choice = False,
@@ -75,12 +65,11 @@ _SUPPORTED_PLATFORM = platform_specificker(
 # ###############################################
 
 
-import logging
 logger = logging.getLogger(__name__)
 
 # Control * imports.
 __all__ = [
-    # 'Inquisitor', 
+    # 'Inquisitor',
 ]
 
 
@@ -90,7 +79,7 @@ __all__ = [
 
 
 class Daemonizer:
-    ''' Emulates Unix daemonization and registers all appropriate 
+    ''' Emulates Unix daemonization and registers all appropriate
     cleanup functions.
     
     with Daemonizer() as (is_setup, daemonize):
@@ -101,18 +90,19 @@ class Daemonizer:
             
         *args = daemonize(*daemonizer_args, *args)
     '''
+    
     def __init__(self):
         ''' Inspect the environment and determine if we're the parent
         or the child.
         '''
-        if '__INVOKE_DAEMON__' in os.environ:
-            self._is_parent = False
-        else:
-            self._is_parent = True
+        self._is_parent = None
+        self._daemonize_called = None
         
     def _daemonize(self, *args, **kwargs):
         ''' Very simple pass-through that does not exit the caller.
         '''
+        self._daemonize_called = True
+        
         if self._is_parent:
             return _daemonize1(*args, **kwargs, _exit_caller=False)
         
@@ -120,6 +110,14 @@ class Daemonizer:
             return _daemonize2(*args, **kwargs)
         
     def __enter__(self):
+        self._daemonize_called = False
+        
+        if '__INVOKE_DAEMON__' in os.environ:
+            self._is_parent = False
+            
+        else:
+            self._is_parent = True
+            
         # In both cases, just return _is_parent and _daemonize
         return self._is_parent, self._daemonize
         
@@ -127,11 +125,35 @@ class Daemonizer:
         ''' Exit doesn't really need to do any cleanup. But, it's needed
         for context managing.
         '''
-        # Immediately kill the parent.
-        if self._is_parent:
-            os._exit(0)
+        # This should only happen if __exit__ was called directly, without
+        # first calling __enter__
+        if self._daemonize_called is None:
+            self._is_parent = None
+            raise RuntimeError('Context manager was inappropriately exited.')
             
-        # Just plain return for child.
+        # This will happen if we used the context manager, but never actually
+        # called to daemonize.
+        elif not self._daemonize_called:
+            self._daemonize_called = None
+            self._is_parent = None
+            return
+            
+        # We called to daemonize, and this is the parent.
+        elif self._is_parent:
+            # If there was an exception, give some information before the
+            # summary self-execution that is os._exit
+            if exc_type is not None:
+                print(
+                    'Exception in parent: ' + str(exc_type) + '(' +
+                    str(exc_value) + ') + \n' +
+                    ''.join(traceback.format_tb(exc_tb))
+                )
+                os._exit(2)
+                
+            else:
+                os._exit(0)
+            
+        # We called to daemonize, and this is the child.
         else:
             return
             

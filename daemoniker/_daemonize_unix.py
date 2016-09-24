@@ -1,4 +1,4 @@
-''' 
+'''
 LICENSING
 -------------------------------------------------
 
@@ -7,7 +7,7 @@ daemoniker: Cross-platform daemonization tools.
     
     Contributors
     ------------
-    Nick Badger 
+    Nick Badger
         badg@muterra.io | badg@nickbadger.com | nickbadger.com
 
     This library is free software; you can redistribute it and/or
@@ -21,16 +21,16 @@ daemoniker: Cross-platform daemonization tools.
     Lesser General Public License for more details.
 
     You should have received a copy of the GNU Lesser General Public
-    License along with this library; if not, write to the 
+    License along with this library; if not, write to the
     Free Software Foundation, Inc.,
-    51 Franklin Street, 
-    Fifth Floor, 
+    51 Franklin Street,
+    Fifth Floor,
     Boston, MA  02110-1301 USA
 
 ------------------------------------------------------
 
 This was written with heavy consultation of the following resources:
-    Chad J. Schroeder, Creating a daemon the Python way (Python recipe) 
+    Chad J. Schroeder, Creating a daemon the Python way (Python recipe)
         http://code.activestate.com/recipes/
         278731-creating-a-daemon-the-python-way/
     Ilya Otyutskiy, Daemonize
@@ -45,24 +45,18 @@ This was written with heavy consultation of the following resources:
 
 # Global dependencies
 import os
-import sys
-import signal
 import logging
 import atexit
 import traceback
-import shutil
 
 # Intra-package dependencies
 from .utils import platform_specificker
 from .utils import default_to
 
 from ._daemonize_common import _make_range_tuples
-from ._daemonize_common import _flush_stds
 from ._daemonize_common import _redirect_stds
 from ._daemonize_common import _write_pid
 from ._daemonize_common import _acquire_pidfile
-
-from .exceptions import ReceivedSignal
 
 _SUPPORTED_PLATFORM = platform_specificker(
     linux_choice = True,
@@ -85,12 +79,11 @@ if _SUPPORTED_PLATFORM:
 # ###############################################
 
 
-import logging
 logger = logging.getLogger(__name__)
 
 # Control * imports.
 __all__ = [
-    # 'Inquisitor', 
+    # 'Inquisitor',
 ]
 
 
@@ -112,15 +105,20 @@ class Daemonizer:
             
         *args = daemonize(*daemonizer_args, *args)
     '''
+    
     def __init__(self):
         self._is_parent = None
+        self._daemonize_called = None
         
     def _daemonize(self, *args, **kwargs):
+        self._daemonized_called = True
         ret_vec = daemonize(*args, **kwargs, _exit_caller=False)
         self._is_parent = ret_vec[0]
         return ret_vec
         
     def __enter__(self):
+        self._daemonize_called = False
+        self._is_parent = None
         # This will always only be entered by the parent.
         return True, self._daemonize
         
@@ -128,16 +126,35 @@ class Daemonizer:
         ''' Exit doesn't really need to do any cleanup. But, it's needed
         for context managing.
         '''
-        # This will always only be entered by the parent.
-        if self._is_parent is None:
+        # This should only happen if __exit__ was called directly, without
+        # first calling __enter__
+        if self._daemonize_called is None:
+            self._is_parent = None
             raise RuntimeError('Context manager was inappropriately exited.')
             
-        # os._exit for the parent, so no cleanup
-        elif self._is_parent:
-            os._exit(0)
+        # This will happen if we used the context manager, but never actually
+        # called to daemonize.
+        elif not self._daemonize_called:
+            self._daemonize_called = None
+            self._is_parent = None
+            return
             
-        # This will always only be FULLY exited by the child.
-        # Normal return for the child
+        # We called to daemonize, and this is the parent.
+        elif self._is_parent:
+            # If there was an exception, give some information before the
+            # summary self-execution that is os._exit
+            if exc_type is not None:
+                print(
+                    'Exception in parent: ' + str(exc_type) + '(' +
+                    str(exc_value) + ') + \n' +
+                    ''.join(traceback.format_tb(exc_tb))
+                )
+                os._exit(2)
+                
+            else:
+                os._exit(0)
+            
+        # We called to daemonize, and this is the child.
         else:
             return
 
@@ -145,7 +162,7 @@ class Daemonizer:
 def _fratricidal_fork(have_mercy=False):
     ''' Fork the current process, and immediately exit the parent.
     
-    OKAY TECHNICALLY THIS WOULD BE PARRICIDE but it just doesn't 
+    OKAY TECHNICALLY THIS WOULD BE PARRICIDE but it just doesn't
     have the same ring to it.
     
     have_mercy allows the parent to persist for a little while, but it
@@ -158,12 +175,12 @@ def _fratricidal_fork(have_mercy=False):
             
     except OSError as exc:
         logger.critical(
-            'Fork failed with traceback: \n' + 
+            'Fork failed with traceback: \n' +
             ''.join(traceback.format_exc())
         )
         raise SystemExit('Failed to fork.') from exc
     
-    # If PID != 0, this is the parent process, and we should immediately 
+    # If PID != 0, this is the parent process, and we should immediately
     # die.
     # Note that python handles forking failures for us.
     if pid != 0:
@@ -186,7 +203,7 @@ def _fratricidal_fork(have_mercy=False):
 def _filial_usurpation(chdir, umask):
     ''' Decouple the child process from the parent environment.
     '''
-    # This prevents "directory busy" errors when attempting to remove 
+    # This prevents "directory busy" errors when attempting to remove
     # subdirectories.
     os.chdir(chdir)
     
@@ -231,7 +248,7 @@ def _autoclose_files(shielded=None, fallback_limit=1024):
     else:
         fdlimit = hardlimit
     
-    # Skip fd 0, 1, 2, which are used by stdin, stdout, and stderr 
+    # Skip fd 0, 1, 2, which are used by stdin, stdout, and stderr
     # (respectively)
     ranges_to_close = _make_range_tuples(
         start = 3,
@@ -243,14 +260,14 @@ def _autoclose_files(shielded=None, fallback_limit=1024):
         os.closerange(start, stop)
 
         
-def daemonize(pid_file, *args, chdir=None, stdin_goto=None, stdout_goto=None, 
-              stderr_goto=None, umask=0o027, shielded_fds=None, 
-              fd_fallback_limit=1024, success_timeout=30, 
+def daemonize(pid_file, *args, chdir=None, stdin_goto=None, stdout_goto=None,
+              stderr_goto=None, umask=0o027, shielded_fds=None,
+              fd_fallback_limit=1024, success_timeout=30,
               strip_cmd_args=False, _exit_caller=True):
     ''' Performs a classic unix double-fork daemonization. Registers all
     appropriate cleanup functions.
     
-    fd_check_limit is a fallback value for file descriptor searching 
+    fd_check_limit is a fallback value for file descriptor searching
     while closing descriptors.
     
     umask is the eponymous unix umask. The default value:
@@ -277,7 +294,7 @@ def daemonize(pid_file, *args, chdir=None, stdin_goto=None, stdout_goto=None,
     # Convert the pid_file to an abs path
     pid_file = os.path.abspath(pid_file)
     
-    # Get the noop stream, in case Python is using something other than 
+    # Get the noop stream, in case Python is using something other than
     # /dev/null
     if hasattr(os, "devnull"):
         devnull = os.devnull
@@ -313,7 +330,7 @@ def daemonize(pid_file, *args, chdir=None, stdin_goto=None, stdout_goto=None,
             os.remove(pid_path)
         except:
             logger.error(
-                'Failed to clean up pidfile w/ traceback: \n' + 
+                'Failed to clean up pidfile w/ traceback: \n' +
                 ''.join(traceback.format_exc())
             )
             raise
