@@ -135,6 +135,7 @@ class Daemonizer:
         # This will happen if we used the context manager, but never actually
         # called to daemonize.
         elif not self._daemonize_called:
+            logger.warning('Daemonizer exited without calling daemonize.')
             self._daemonize_called = None
             self._is_parent = None
             return
@@ -144,7 +145,7 @@ class Daemonizer:
             # If there was an exception, give some information before the
             # summary self-execution that is os._exit
             if exc_type is not None:
-                print(
+                logger.error(
                     'Exception in parent: ' + str(exc_type) + '(' +
                     str(exc_value) + ') + \n' +
                     ''.join(traceback.format_tb(exc_tb))
