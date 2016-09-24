@@ -1,4 +1,4 @@
-''' 
+'''
 LICENSING
 -------------------------------------------------
 
@@ -7,7 +7,7 @@ daemoniker: Cross-platform daemonization tools.
     
     Contributors
     ------------
-    Nick Badger 
+    Nick Badger
         badg@muterra.io | badg@nickbadger.com | nickbadger.com
 
     This library is free software; you can redistribute it and/or
@@ -21,23 +21,22 @@ daemoniker: Cross-platform daemonization tools.
     Lesser General Public License for more details.
 
     You should have received a copy of the GNU Lesser General Public
-    License along with this library; if not, write to the 
+    License along with this library; if not, write to the
     Free Software Foundation, Inc.,
-    51 Franklin Street, 
-    Fifth Floor, 
+    51 Franklin Street,
+    Fifth Floor,
     Boston, MA  02110-1301 USA
 
 ------------------------------------------------------
 '''
 
 import unittest
-import collections
 import logging
 import tempfile
-import sys
 import os
 import time
 import shutil
+import traceback
 
 from daemoniker._daemonize_unix import Daemonizer
 from daemoniker._daemonize_unix import daemonize
@@ -86,14 +85,14 @@ def childproc_daemonizer(pid_file, token, res_path, check_path, check_seed,
                 time.sleep(1)
     except:
         logging.error(
-            'Failure writing token w/ traceback: \n' + 
+            'Failure writing token w/ traceback: \n' +
             ''.join(traceback.format_exc())
         )
         raise
 
 
 def childproc_daemon(pid_file, token, res_path):
-    ''' The test daemon quite simply daemonizes itself, does some stuff 
+    ''' The test daemon quite simply daemonizes itself, does some stuff
     to confirm its existence, waits for a signal to die, and then dies.
     '''
     # Daemonize ourselves
@@ -113,7 +112,7 @@ def childproc_daemon(pid_file, token, res_path):
     
     except:
         logging.error(
-            'Failure writing token w/ traceback: \n' + 
+            'Failure writing token w/ traceback: \n' +
             ''.join(traceback.format_exc())
         )
     
@@ -162,8 +161,8 @@ def childproc_fratfork_2(res_path_parent, res_path_child):
         time.sleep(.25)
 
         
-def childproc_filialusurp(umask, chdir, umask_path, sid_path, wdir_path, 
-                        pid_path):
+def childproc_filialusurp(umask, chdir, umask_path, sid_path, wdir_path,
+                          pid_path):
     _filial_usurpation(chdir, umask)
     # Get our session id
     my_pid = os.getpid()
@@ -221,7 +220,7 @@ class Deamonizing_test(unittest.TestCase):
                 
                 self.assertTrue(os.path.exists(fpath))
                 with self.assertRaises(SystemExit):
-                    pidfile = _acquire_pidfile(fpath, silence_logger=True)
+                    _acquire_pidfile(fpath, silence_logger=True)
                     
                 # Ensure no zombies. See os.waitpid manpage. Immediately return
                 # to prevent hanging.
@@ -296,10 +295,10 @@ class Deamonizing_test(unittest.TestCase):
             else:
                 _fixtures.__SKIP_ALL_REMAINING__ = True
                 childproc_filialusurp(
-                    umask, 
-                    chdir, 
-                    umask_path, 
-                    sid_path, 
+                    umask,
+                    chdir,
+                    umask_path,
+                    sid_path,
                     wdir_path,
                     pid_path
                 )
@@ -336,7 +335,7 @@ class Deamonizing_test(unittest.TestCase):
                 fs.append(thisf)
             
         try:
-            _autoclose_files(shielded=shielded_fds+logger_fds)
+            _autoclose_files(shielded=shielded_fds + logger_fds)
             
             for f in shielded_fs:
                 with self.subTest('Persistent: ' + str(f)):
@@ -351,7 +350,7 @@ class Deamonizing_test(unittest.TestCase):
                     with self.assertRaises(OSError):
                         os.fstat(f.fileno())
 
-            # Do it again with no files shielded from closure.                    
+            # Do it again with no files shielded from closure.
             _autoclose_files(shielded=logger_fds)
             for f in shielded_fs:
                 with self.subTest('Cleanup: ' + str(f)):
@@ -369,7 +368,7 @@ class Deamonizing_test(unittest.TestCase):
                     pass
         
     def test_frat_fork(self):
-        ''' Test "fratricidal" (okay, parricidal) forking (fork and 
+        ''' Test "fratricidal" (okay, parricidal) forking (fork and
         parent dies). Platform-specific.
         '''
         with tempfile.TemporaryDirectory() as dirname:
@@ -401,7 +400,7 @@ class Deamonizing_test(unittest.TestCase):
             
                 # Make sure the intermediate process is dead.
                 with self.assertRaises(OSError):
-                    # Send it a signal to check existence (os.kill is badly 
+                    # Send it a signal to check existence (os.kill is badly
                     # named)
                     os.kill(inter_pid, 0)
                 
@@ -452,7 +451,7 @@ class Deamonizing_test(unittest.TestCase):
             
                 # Make sure the intermediate process is dead.
                 with self.assertRaises(OSError):
-                    # Send it a signal to check existence (os.kill is badly 
+                    # Send it a signal to check existence (os.kill is badly
                     # named)
                     os.kill(inter_pid, 0)
                 
@@ -483,7 +482,7 @@ class Deamonizing_test(unittest.TestCase):
                 # Wait a moment for the daemon to show up
                 time.sleep(.5)
                 # This is janky, but multiprocessing hasn't been working for
-                # events or queues with daemonizing, might have something to 
+                # events or queues with daemonizing, might have something to
                 # do with multiple threads and forking or something
                 
                 try:
@@ -498,7 +497,7 @@ class Deamonizing_test(unittest.TestCase):
                 # Make sure the pid file exists
                 self.assertTrue(os.path.exists(pid_file))
                     
-                # Now hold off just a moment and then make sure the pid is 
+                # Now hold off just a moment and then make sure the pid is
                 # cleaned up successfully. Note that this timing is dependent
                 # upon the child process.
                 time.sleep(5)
@@ -508,7 +507,7 @@ class Deamonizing_test(unittest.TestCase):
                 os.waitpid(pid, os.WNOHANG)
             
             finally:
-                # Explicitly call cleanup so that we don't have a competition 
+                # Explicitly call cleanup so that we don't have a competition
                 # for removing the temporary directory
                 shutil.rmtree(dirname, ignore_errors=True)
             
@@ -517,7 +516,7 @@ class Deamonizing_test(unittest.TestCase):
             _fixtures.__SKIP_ALL_REMAINING__ = True
             childproc_daemon(pid_file, token, res_path)
             # Hm. So we can't do os._exit, because we need the cleanup to
-            # happen to remove the pid file. However, we're deamonized now, 
+            # happen to remove the pid file. However, we're deamonized now,
             # so this shouldn't affect the parent.
             raise SystemExit()
                 
@@ -581,7 +580,7 @@ class Deamonizing_test(unittest.TestCase):
                 self.assertEqual(grandparent_pid, pid)
                 # Don't need to cleanup because it's in a tempdir
                     
-                # Now hold off just a moment and then make sure the pid is 
+                # Now hold off just a moment and then make sure the pid is
                 # cleaned up successfully. Note that this timing is dependent
                 # upon the child process.
                 # Wait for the intermediate process to clear (don't os.WNOHANG)
@@ -605,10 +604,10 @@ class Deamonizing_test(unittest.TestCase):
         else:
             try:
                 childproc_daemonizer(
-                    pid_file, 
-                    token, 
-                    res_path, 
-                    check_path, 
+                    pid_file,
+                    token,
+                    res_path,
+                    check_path,
                     check_seed,
                     parent_pid_file
                 )
