@@ -1,4 +1,4 @@
-''' 
+'''
 LICENSING
 -------------------------------------------------
 
@@ -7,7 +7,7 @@ daemoniker: Cross-platform daemonization tools.
     
     Contributors
     ------------
-    Nick Badger 
+    Nick Badger
         badg@muterra.io | badg@nickbadger.com | nickbadger.com
 
     This library is free software; you can redistribute it and/or
@@ -21,38 +21,31 @@ daemoniker: Cross-platform daemonization tools.
     Lesser General Public License for more details.
 
     You should have received a copy of the GNU Lesser General Public
-    License along with this library; if not, write to the 
+    License along with this library; if not, write to the
     Free Software Foundation, Inc.,
-    51 Franklin Street, 
-    Fifth Floor, 
+    51 Franklin Street,
+    Fifth Floor,
     Boston, MA  02110-1301 USA
 
 ------------------------------------------------------
 '''
 
 import unittest
-import collections
 import threading
 import logging
 import tempfile
 import sys
 import os
 import time
-import shutil
-import pickle
 import subprocess
 import signal
 import random
 
-from daemoniker._signals_windows import _SUPPORTED_PLATFORM
-
-from daemoniker._signals_common import IGNORE_SIGNAL
 from daemoniker._signals_common import send
-from daemoniker._signals_common import ping
 
+from daemoniker._signals_windows import _SUPPORTED_PLATFORM
 from daemoniker._signals_windows import SignalHandler1
 from daemoniker._signals_windows import _sketch_raise_in_main
-from daemoniker._signals_windows import _noop
 from daemoniker._signals_windows import _await_signal
 # No good way to test this, but it's super simple so whatever
 # from daemoniker._signals_windows import _infinite_noop
@@ -168,7 +161,7 @@ class Signals_test(unittest.TestCase):
         '''
         python_path = sys.executable
         python_path = os.path.abspath(python_path)
-        worker_cmd = ('"' + python_path + '" -c ' + 
+        worker_cmd = ('"' + python_path + '" -c ' +
                       '"import time; time.sleep(60)"')
         
         with tempfile.TemporaryDirectory() as dirpath:
@@ -219,9 +212,9 @@ class Signals_test(unittest.TestCase):
             pidfile = dirpath + '/pid.pid'
             
             sighandler = SignalHandler1(
-                pidfile, 
-                sigint = handler, 
-                sigterm = handler, 
+                pidfile,
+                sigint = handler,
+                sigterm = handler,
                 sigabrt = handler
             )
             sighandler.start()
