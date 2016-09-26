@@ -48,6 +48,7 @@ import os
 import logging
 import atexit
 import traceback
+import sys
 
 # Intra-package dependencies
 from .utils import platform_specificker
@@ -148,9 +149,15 @@ class Daemonizer:
             # summary self-execution that is os._exit
             if exc_type is not None:
                 logger.error(
-                    'Exception in parent: ' + str(exc_type) + '(' +
-                    str(exc_value) + ') + \n' +
-                    ''.join(traceback.format_tb(exc_tb))
+                    'Exception in parent:\n' +
+                    ''.join(traceback.format_tb(exc_tb)) + '\n' +
+                    repr(exc_value)
+                )
+                print(
+                    'Exception in parent:\n' +
+                    ''.join(traceback.format_tb(exc_tb)) + '\n' +
+                    repr(exc_value),
+                    file=sys.stderr
                 )
                 os._exit(2)
                 

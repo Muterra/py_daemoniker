@@ -147,9 +147,15 @@ class Daemonizer:
             # summary self-execution that is os._exit
             if exc_type is not None:
                 logger.error(
-                    'Exception in parent: ' + str(exc_type) + '(' +
-                    str(exc_value) + ') + \n' +
-                    ''.join(traceback.format_tb(exc_tb))
+                    'Exception in parent:\n' +
+                    ''.join(traceback.format_tb(exc_tb)) + '\n' +
+                    repr(exc_value)
+                )
+                print(
+                    'Exception in parent:\n' +
+                    ''.join(traceback.format_tb(exc_tb)) + '\n' +
+                    repr(exc_value),
+                    file=sys.stderr
                 )
                 os._exit(2)
                 
@@ -423,7 +429,7 @@ def _daemonize1(pid_file, *args, chdir=None, stdin_goto=None, stdout_goto=None,
                 worker_cmd = ('"' + python_path + '" -m ' +
                               'daemoniker._daemonize_windows ' +
                               '"' + worker_argpath + '"')
-            
+                
                 try:
                     # This will wait for the worker to finish, or cancel it at
                     # the timeout.
@@ -448,7 +454,7 @@ def _daemonize1(pid_file, *args, chdir=None, stdin_goto=None, stdout_goto=None,
     except:
         _clean_file(pid_file)
         raise
-            
+    
     # Success.
     # _exit_caller = True. Exit the interpreter.
     if _exit_caller:
