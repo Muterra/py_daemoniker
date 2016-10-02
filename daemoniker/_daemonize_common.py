@@ -1,4 +1,4 @@
-''' 
+'''
 LICENSING
 -------------------------------------------------
 
@@ -7,7 +7,7 @@ daemoniker: Cross-platform daemonization tools.
     
     Contributors
     ------------
-    Nick Badger 
+    Nick Badger
         badg@muterra.io | badg@nickbadger.com | nickbadger.com
 
     This library is free software; you can redistribute it and/or
@@ -21,10 +21,10 @@ daemoniker: Cross-platform daemonization tools.
     Lesser General Public License for more details.
 
     You should have received a copy of the GNU Lesser General Public
-    License along with this library; if not, write to the 
+    License along with this library; if not, write to the
     Free Software Foundation, Inc.,
-    51 Franklin Street, 
-    Fifth Floor, 
+    51 Franklin Street,
+    Fifth Floor,
     Boston, MA  02110-1301 USA
 
 ------------------------------------------------------
@@ -53,7 +53,7 @@ logger = logging.getLogger(__name__)
 
 # Control * imports.
 __all__ = [
-    # 'Inquisitor', 
+    # 'Inquisitor',
 ]
 
 
@@ -63,7 +63,7 @@ __all__ = [
 
     
 def _make_range_tuples(start, stop, exclude):
-    ''' Creates a list of tuples for all ranges needed to close all 
+    ''' Creates a list of tuples for all ranges needed to close all
     files between start and stop, except exclude. Ex:
     start=3, stop=7, exclude={4,}:
         (3, 4),
@@ -77,7 +77,7 @@ def _make_range_tuples(start, stop, exclude):
     ranges = []
     seeker = start
     for ii in exclude:
-        # Only add actual slices (it wouldn't matter if we added empty ones, 
+        # Only add actual slices (it wouldn't matter if we added empty ones,
         # but there's also no reason to).
         if seeker != ii:
             this_range = (seeker, ii)
@@ -97,14 +97,14 @@ def _make_range_tuples(start, stop, exclude):
 def _flush_stds():
     ''' Flush stdout and stderr.
     
-    Note special casing needed for pythonw.exe, which has no stdout or 
+    Note special casing needed for pythonw.exe, which has no stdout or
     stderr.
     '''
     try:
         sys.stdout.flush()
     except BlockingIOError:
         logger.error(
-            'Failed to flush stdout w/ traceback: \n' + 
+            'Failed to flush stdout w/ traceback: \n' +
             ''.join(traceback.format_exc())
         )
         # Honestly not sure if we should exit here.
@@ -113,14 +113,14 @@ def _flush_stds():
         sys.stderr.flush()
     except BlockingIOError:
         logger.error(
-            'Failed to flush stderr w/ traceback: \n' + 
+            'Failed to flush stderr w/ traceback: \n' +
             ''.join(traceback.format_exc())
         )
         # Honestly not sure if we should exit here.
 
         
 def _redirect_stds(stdin_goto, stdout_goto, stderr_goto):
-    ''' Set stdin, stdout, sterr. If any of the paths don't exist, 
+    ''' Set stdin, stdout, sterr. If any of the paths don't exist,
     create them first.
     '''
     # The general strategy here is to:
@@ -171,7 +171,7 @@ def _redirect_stds(stdin_goto, stdout_goto, stderr_goto):
         access_mode[stream] = access_lookup_2[streams[stream]]
         # And update streams to be that, instead of the access mask.
         streams[stream] = stream_fd
-        # We cannot immediately close the stream, because we'll get an 
+        # We cannot immediately close the stream, because we'll get an
         # error about a bad file descriptor.
     
     # Okay, duplicate our streams into the FDs for stdin, stdout, stderr.
@@ -184,7 +184,7 @@ def _redirect_stds(stdin_goto, stdout_goto, stderr_goto):
         open_streams = {}
         for stream in streams:
             open_streams[stream] = os.fdopen(
-                fd = streams[stream], 
+                fd = streams[stream],
                 mode = access_mode[stream]
             )
             
@@ -216,7 +216,7 @@ def _write_pid(locked_pidfile):
         
         
 def _acquire_pidfile(pid_file, ignore_lock=False, silence_logger=False):
-    ''' Opens the pid_file, but unfortunately, as this is Windows, we 
+    ''' Opens the pid_file, but unfortunately, as this is Windows, we
     cannot really lock it. Assume existence is equivalent to locking,
     unless autoclean=True.
     '''
@@ -234,7 +234,7 @@ def _acquire_pidfile(pid_file, ignore_lock=False, silence_logger=False):
                 if not silence_logger:
                     logger.critical(
                         'PID file already exists. Acquire with autoclean=True '
-                        'to force cleanup of existing PID file. Traceback:\n' + 
+                        'to force cleanup of existing PID file. Traceback:\n' +
                         ''.join(traceback.format_exc())
                     )
                 raise SystemExit('Unable to acquire PID file.')
@@ -244,7 +244,7 @@ def _acquire_pidfile(pid_file, ignore_lock=False, silence_logger=False):
             
     except (IOError, OSError) as exc:
         logger.critical(
-            'Unable to create/open the PID file w/ traceback: \n' + 
+            'Unable to create/open the PID file w/ traceback: \n' +
             ''.join(traceback.format_exc())
         )
         raise SystemExit('Unable to create/open PID file.') from exc

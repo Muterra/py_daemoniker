@@ -1,4 +1,4 @@
-''' 
+'''
 LICENSING
 -------------------------------------------------
 
@@ -7,7 +7,7 @@ daemoniker: Cross-platform daemonization tools.
     
     Contributors
     ------------
-    Nick Badger 
+    Nick Badger
         badg@muterra.io | badg@nickbadger.com | nickbadger.com
 
     This library is free software; you can redistribute it and/or
@@ -21,10 +21,10 @@ daemoniker: Cross-platform daemonization tools.
     Lesser General Public License for more details.
 
     You should have received a copy of the GNU Lesser General Public
-    License along with this library; if not, write to the 
+    License along with this library; if not, write to the
     Free Software Foundation, Inc.,
-    51 Franklin Street, 
-    Fifth Floor, 
+    51 Franklin Street,
+    Fifth Floor,
     Boston, MA  02110-1301 USA
 
 ------------------------------------------------------
@@ -45,7 +45,7 @@ from .utils import default_to
 
 from ._signals_common import _SighandlerCore
 
-from .exceptions import ReceivedSignal
+from .exceptions import DaemonikerSignal
 from .exceptions import SignalError
 from .exceptions import SIGINT
 from .exceptions import SIGTERM
@@ -77,7 +77,7 @@ logger = logging.getLogger(__name__)
 
 # Control * imports.
 __all__ = [
-    # 'Inquisitor', 
+    # 'Inquisitor',
 ]
 
 
@@ -230,6 +230,6 @@ class SignalHandler1(_SighandlerCore):
         try:
             exc = sigs[signum]
         except KeyError:
-            exc = ReceivedSignal
+            exc = DaemonikerSignal
             
         raise exc()

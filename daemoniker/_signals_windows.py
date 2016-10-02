@@ -47,7 +47,7 @@ from .utils import platform_specificker
 from ._daemonize_windows import _get_clean_env
 from ._signals_common import _SighandlerCore
 
-from .exceptions import ReceivedSignal
+from .exceptions import DaemonikerSignal
 from .exceptions import SIGABRT
 from .exceptions import SIGINT
 from .exceptions import SIGTERM
@@ -82,9 +82,9 @@ __all__ = [
 def _sketch_raise_in_main(exc):
     ''' Sketchy way to raise an exception in the main thread.
     '''
-    if isinstance(exc, Exception):
+    if isinstance(exc, BaseException):
         exc = type(exc)
-    elif issubclass(exc, Exception):
+    elif issubclass(exc, BaseException):
         pass
     else:
         raise TypeError('Must raise an exception.')
@@ -309,7 +309,7 @@ class SignalHandler1(_SighandlerCore):
         try:
             exc = sigs[signum]
         except KeyError:
-            exc = ReceivedSignal
+            exc = DaemonikerSignal
             
         _sketch_raise_in_main(exc)
     

@@ -39,7 +39,7 @@ __all__ = [
     # These are daemonization/sighandling errors and exceptions
     'SignalError',
     # These are actual signals
-    'ReceivedSignal',
+    'DaemonikerSignal',
     'SIGABRT',
     'SIGINT',
     'SIGTERM',
@@ -93,19 +93,19 @@ class DaemonikerSignal(BaseException, metaclass=_SignalMeta):
 ReceivedSignal = DaemonikerSignal
 
 
-class SIGABRT(ReceivedSignal):
+class SIGABRT(DaemonikerSignal):
     ''' Raised upon receipt of SIGABRT.
     '''
     SIGNUM = int(signal.SIGABRT)
 
 
-class SIGINT(ReceivedSignal):
+class SIGINT(DaemonikerSignal):
     ''' Raised upon receipt of SIGINT, CTRL_C_EVENT, CTRL_BREAK_EVENT.
     '''
     SIGNUM = int(signal.SIGINT)
 
 
-class SIGTERM(ReceivedSignal):
+class SIGTERM(DaemonikerSignal):
     ''' Raised upon receipt of SIGTERM.
     '''
     SIGNUM = int(signal.SIGTERM)
