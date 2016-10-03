@@ -510,7 +510,7 @@ def _daemonize2(*_daemonize1_args, **_daemonize1_kwargs):
     def cleanup(pid_path=pid_file):
         try:
             os.remove(pid_path)
-        except:
+        except Exception:
             if os.path.exists(pid_path):
                 logger.error(
                     'Failed to clean up pidfile w/ traceback: \n' +
