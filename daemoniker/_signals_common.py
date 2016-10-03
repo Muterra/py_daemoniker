@@ -1,4 +1,4 @@
-''' 
+'''
 LICENSING
 -------------------------------------------------
 
@@ -7,7 +7,7 @@ daemoniker: Cross-platform daemonization tools.
     
     Contributors
     ------------
-    Nick Badger 
+    Nick Badger
         badg@muterra.io | badg@nickbadger.com | nickbadger.com
 
     This library is free software; you can redistribute it and/or
@@ -21,10 +21,10 @@ daemoniker: Cross-platform daemonization tools.
     Lesser General Public License for more details.
 
     You should have received a copy of the GNU Lesser General Public
-    License along with this library; if not, write to the 
+    License along with this library; if not, write to the
     Free Software Foundation, Inc.,
-    51 Franklin Street, 
-    Fifth Floor, 
+    51 Franklin Street,
+    Fifth Floor,
     Boston, MA  02110-1301 USA
 
 ------------------------------------------------------
@@ -42,7 +42,7 @@ import shutil
 # Intra-package dependencies
 from .utils import default_to
 
-from .exceptions import ReceivedSignal
+from .exceptions import DaemonikerSignal
 
 
 # ###############################################
@@ -55,7 +55,7 @@ logger = logging.getLogger(__name__)
 
 # Control * imports.
 __all__ = [
-    # 'Inquisitor', 
+    # 'Inquisitor',
 ]
 
 
@@ -77,9 +77,9 @@ def send(pid_file, signal):
     ''' Sends the signal in signum to the pid_file. Num can be either
     int or one of the exceptions.
     '''
-    if isinstance(signal, ReceivedSignal):
+    if isinstance(signal, DaemonikerSignal):
         signum = signal.SIGNUM
-    elif isinstance(signal, type) and issubclass(signal, ReceivedSignal):
+    elif isinstance(signal, type) and issubclass(signal, DaemonikerSignal):
         signum = signal.SIGNUM
     else:
         signum = int(signal)
@@ -92,7 +92,7 @@ def send(pid_file, signal):
     
 def ping(pid_file):
     ''' Returns True if the process in pid_file is available, and False
-    otherwise. Note that availability does not imply the process is 
+    otherwise. Note that availability does not imply the process is
     running, just that it recently has been. For example, recently-
     exited processes will still return True.
     

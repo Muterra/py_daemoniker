@@ -1,4 +1,4 @@
-''' 
+'''
 LICENSING
 -------------------------------------------------
 
@@ -7,7 +7,7 @@ daemoniker: Cross-platform daemonization tools.
     
     Contributors
     ------------
-    Nick Badger 
+    Nick Badger
         badg@muterra.io | badg@nickbadger.com | nickbadger.com
 
     This library is free software; you can redistribute it and/or
@@ -21,10 +21,10 @@ daemoniker: Cross-platform daemonization tools.
     Lesser General Public License for more details.
 
     You should have received a copy of the GNU Lesser General Public
-    License along with this library; if not, write to the 
+    License along with this library; if not, write to the
     Free Software Foundation, Inc.,
-    51 Franklin Street, 
-    Fifth Floor, 
+    51 Franklin Street,
+    Fifth Floor,
     Boston, MA  02110-1301 USA
 
 ------------------------------------------------------
@@ -39,7 +39,7 @@ __all__ = [
     # These are daemonization/sighandling errors and exceptions
     'SignalError',
     # These are actual signals
-    'ReceivedSignal',
+    'DaemonikerSignal',
     'SIGABRT',
     'SIGINT',
     'SIGTERM',
@@ -76,29 +76,36 @@ class _SignalMeta(type):
         return self.SIGNUM
 
 
-class ReceivedSignal(DaemonikerException, OSError, metaclass=_SignalMeta):
+class DaemonikerSignal(BaseException, metaclass=_SignalMeta):
     ''' Subclasses of this exception are raised by all of the default
     signal handlers defined using SignalHandlers.
+    
+    This subclasses BaseException because, when unhandled, it should
+    always be a system-exiting exception. That being said, it should not
+    subclass SystemExit, because that's a whole different can of worms.
     '''
     SIGNUM = -1
     
     def __int__(self):
         return self.SIGNUM
+        
+        
+ReceivedSignal = DaemonikerSignal
 
 
-class SIGABRT(ReceivedSignal):
+class SIGABRT(DaemonikerSignal):
     ''' Raised upon receipt of SIGABRT.
     '''
     SIGNUM = int(signal.SIGABRT)
 
 
-class SIGINT(ReceivedSignal):
+class SIGINT(DaemonikerSignal):
     ''' Raised upon receipt of SIGINT, CTRL_C_EVENT, CTRL_BREAK_EVENT.
     '''
     SIGNUM = int(signal.SIGINT)
 
 
-class SIGTERM(ReceivedSignal):
+class SIGTERM(DaemonikerSignal):
     ''' Raised upon receipt of SIGTERM.
     '''
     SIGNUM = int(signal.SIGTERM)
