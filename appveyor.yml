@@ -27,6 +27,13 @@ environment:
 
     - PYTHON: "C:\\Python35"
     - PYTHON: "C:\\Python35-x64"
+    - PYTHON: "C:\\Python34"
+    - PYTHON: "C:\\Python34-x64"
+    
+matrix:
+  allow_failures:
+    - PYTHON: "C:\\Python34"
+    - PYTHON: "C:\\Python34-x64"
 
 # scripts that run after cloning repository
 install:
