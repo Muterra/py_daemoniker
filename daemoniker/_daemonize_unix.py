@@ -112,7 +112,7 @@ class Daemonizer:
         self._daemonize_called = None
         
     def _daemonize(self, *args, **kwargs):
-        ret_vec = daemonize(*args, **kwargs, _exit_caller=False)
+        ret_vec = daemonize(*args, _exit_caller=False, **kwargs)
         self._daemonize_called = True
         self._is_parent = ret_vec[0]
         return ret_vec

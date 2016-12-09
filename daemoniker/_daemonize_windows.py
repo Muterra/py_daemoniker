@@ -104,7 +104,7 @@ class Daemonizer:
         self._daemonize_called = True
         
         if self._is_parent:
-            return _daemonize1(*args, **kwargs, _exit_caller=False)
+            return _daemonize1(*args, _exit_caller=False, **kwargs)
         
         else:
             return _daemonize2(*args, **kwargs)
