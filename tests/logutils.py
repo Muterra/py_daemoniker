@@ -89,3 +89,5 @@ def autoconfig(tofile=False, logdirname='logs', loglevel='warning', suffix=''):
         log_setpoint = loglevel_enum[loglevel]
     except KeyError:
         log_setpoint = logging.WARNING
+
+    logging.getLogger('').setLevel(log_setpoint)
