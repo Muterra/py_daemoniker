@@ -7,22 +7,25 @@ matrix:
   include:
     - os: linux
       python: 3.5
-      env: TESTSUITE=false
+      env: TESTSUITE=lin35
     
     - os: osx
       sudo: required
       language: generic
       env: TESTSUITE=osx35
       
-  allow_failures:
     - os: linux
       python: 3.4
-      env: TESTSUITE=false
+      env: TESTSUITE=lin34
     
     - os: osx
       sudo: required
       language: generic
       env: TESTSUITE=osx34
+      
+  allow_failures:
+    - env: TESTSUITE=osx34
+    - env: TESTSUITE=lin34
       
 #  Manually install python on osx
 install: |
