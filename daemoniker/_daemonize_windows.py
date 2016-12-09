@@ -466,7 +466,7 @@ def _daemonize1(pid_file, *args, chdir=None, stdin_goto=None, stdout_goto=None,
         # Reset args to be an equivalent expansion of *[None]s
         args = [None] * len(args)
         # is_parent, *args
-        return [True, *args]
+        return [True] + list(args)
     
     
 def _daemonize2(*_daemonize1_args, **_daemonize1_kwargs):
@@ -534,7 +534,7 @@ def _daemonize2(*_daemonize1_args, **_daemonize1_kwargs):
     # application expects a return value for is_parent
     else:
         # is_parent, *args
-        return [False, *args]
+        return [False] + list(args)
 
 
 if '__INVOKE_DAEMON__' in os.environ:

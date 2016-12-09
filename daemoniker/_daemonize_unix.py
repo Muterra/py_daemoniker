@@ -360,7 +360,7 @@ def daemonize(pid_file, *args, chdir=None, stdin_goto=None, stdout_goto=None,
         # accidentally trying to modify them in the parent
         args = [None] * len(args)
         # is_parent, *args
-        return [True, *args]
+        return [True] + list(args)
         
     # Okay, we're the child.
     else:
@@ -377,7 +377,7 @@ def daemonize(pid_file, *args, chdir=None, stdin_goto=None, stdout_goto=None,
         # We still need to adapt our return based on _exit_caller
         if not _exit_caller:
             # is_parent, *args
-            return [False, *args]
+            return [False] + list(args)
             
         # Normal, bare daemonization call
         else:
