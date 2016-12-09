@@ -398,7 +398,8 @@ def _daemonize1(pid_file, *args, chdir=None, stdin_goto=None, stdout_goto=None,
         # Now open up a secure way to pass a namespace to the daughter process.
         with _NamespacePasser() as fpath:
             # Determine the child env
-            child_env = {**_get_clean_env(), '__INVOKE_DAEMON__': fpath}
+            child_env = {'__INVOKE_DAEMON__': fpath}
+            child_env.update(_get_clean_env())
                 
             # We need to shield ourselves from signals, or we'll be terminated
             # by python before running cleanup. So use a spawned worker to
@@ -423,7 +424,8 @@ def _daemonize1(pid_file, *args, chdir=None, stdin_goto=None, stdout_goto=None,
                     pickle.dump(worker_argv, f, protocol=-1)
                     
                 # Create an env for the worker to let it know what to do
-                worker_env = {**_get_clean_env(), '__CREATE_DAEMON__': 'True'}
+                worker_env = {'__CREATE_DAEMON__': 'True'}
+                worker_env.update(_get_clean_env())
                 # Figure out the path to the current file
                 # worker_target = os.path.abspath(__file__)
                 worker_cmd = ('"' + python_path + '" -m ' +
@@ -546,7 +548,7 @@ else:
 def _get_clean_env():
     ''' Gets a clean copy of our environment, with any flags stripped.
     '''
-    env2 = {**os.environ}
+    env2 = dict(os.environ)
     flags = {
         '__INVOKE_DAEMON__',
         '__CREATE_DAEMON__',
