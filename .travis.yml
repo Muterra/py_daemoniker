@@ -7,14 +7,29 @@ matrix:
   include:
     - os: linux
       python: 3.5
+      env: TESTSUITE=lin35
     
     - os: osx
       sudo: required
       language: generic
+      env: TESTSUITE=osx35
+      
+    - os: linux
+      python: 3.4
+      env: TESTSUITE=lin34
+    
+    - os: osx
+      sudo: required
+      language: generic
+      env: TESTSUITE=osx34
+      
+  allow_failures:
+    - env: TESTSUITE=osx34
+    - env: TESTSUITE=lin34
       
 #  Manually install python on osx
 install: |
-  if [[ $TRAVIS_OS_NAME == 'osx' ]]; then
+  if [[ $TESTSUITE == 'osx35' ]]; then
 
       brew update;
       brew install python3;
@@ -22,8 +37,23 @@ install: |
       source venv/bin/activate;
       pip install . test
       
+  elif [[ $TESTSUITE == 'osx34' ]]; then
+  
+      git clone --depth 1 https://github.com/yyuu/pyenv.git ~/.pyenv
+      PYENV_ROOT="$HOME/.pyenv"
+      PATH="$PYENV_ROOT/bin:$PATH"
+      eval "$(pyenv init -)"
+      pyenv install 3.4.5
+      pyenv global 3.4.5
+      pyenv rehash
+      python -m pip install --user virtualenv
+      python -m virtualenv ~/.venv
+      source ~/.venv/bin/activate
+      pip install . test
+      
   else
       pip install . test
+  
   fi
   
 script: python tests/supervisor.py

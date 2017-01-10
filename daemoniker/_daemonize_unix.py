@@ -112,7 +112,7 @@ class Daemonizer:
         self._daemonize_called = None
         
     def _daemonize(self, *args, **kwargs):
-        ret_vec = daemonize(*args, **kwargs, _exit_caller=False)
+        ret_vec = daemonize(*args, _exit_caller=False, **kwargs)
         self._daemonize_called = True
         self._is_parent = ret_vec[0]
         return ret_vec
@@ -273,7 +273,7 @@ def _autoclose_files(shielded=None, fallback_limit=1024):
 def daemonize(pid_file, *args, chdir=None, stdin_goto=None, stdout_goto=None,
               stderr_goto=None, umask=0o027, shielded_fds=None,
               fd_fallback_limit=1024, success_timeout=30,
-              strip_cmd_args=False, _exit_caller=True):
+              strip_cmd_args=False, explicit_rescript=None, _exit_caller=True):
     ''' Performs a classic unix double-fork daemonization. Registers all
     appropriate cleanup functions.
     
@@ -360,7 +360,7 @@ def daemonize(pid_file, *args, chdir=None, stdin_goto=None, stdout_goto=None,
         # accidentally trying to modify them in the parent
         args = [None] * len(args)
         # is_parent, *args
-        return [True, *args]
+        return [True] + list(args)
         
     # Okay, we're the child.
     else:
@@ -377,7 +377,7 @@ def daemonize(pid_file, *args, chdir=None, stdin_goto=None, stdout_goto=None,
         # We still need to adapt our return based on _exit_caller
         if not _exit_caller:
             # is_parent, *args
-            return [False, *args]
+            return [False] + list(args)
             
         # Normal, bare daemonization call
         else:

@@ -217,7 +217,8 @@ class SignalHandler1(_SighandlerCore):
         python_path = os.path.abspath(python_path)
         worker_cmd = ('"' + python_path + '" -m ' +
                       'daemoniker._signals_windows')
-        worker_env = {**_get_clean_env(), '__CREATE_SIGHANDLER__': 'True'}
+        worker_env = {'__CREATE_SIGHANDLER__': 'True'}
+        worker_env.update(_get_clean_env())
         
         # Iterate until we're reaped by the main thread exiting.
         try:

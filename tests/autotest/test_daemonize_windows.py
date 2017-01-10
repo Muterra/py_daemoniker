@@ -41,6 +41,7 @@ import shutil
 import pickle
 import subprocess
 import multiprocessing
+import traceback
 
 from daemoniker._daemonize_windows import _SUPPORTED_PLATFORM
 
@@ -283,12 +284,12 @@ class Deamonizing_test(unittest.TestCase):
             res_path = dirname + '/response.txt'
             
             worker_env = {
-                **os.environ,
                 '__TESTWORKER__': 'True',
                 '__WORKER_PIDFILE__': pid_file,
                 '__WORKER_TOKEN__': str(token),
                 '__WORKER_RESPATH__': res_path,
             }
+            worker_env.update(os.environ)
             
             # Create another instance of this same file in a daughter process
             # to shield us from the os._exit at the end of the daemonization
@@ -347,7 +348,6 @@ class Deamonizing_test(unittest.TestCase):
             parent_pid_file = dirname + '/parentpid.pid'
             
             worker_env = {
-                **os.environ,
                 '__CONTEXTWORKER__': 'True',
                 '__WORKER_PIDFILE__': pid_file,
                 '__WORKER_TOKEN__': str(token),
@@ -356,6 +356,7 @@ class Deamonizing_test(unittest.TestCase):
                 '__WORKER_CHECKSEED__': str(check_seed),
                 '__WORKER_PARENTPID__': parent_pid_file,
             }
+            worker_env.update(os.environ)
             
             # Create another instance of this same file in a daughter process
             # to shield us from the os._exit at the end of the daemonization

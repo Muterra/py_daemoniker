@@ -104,7 +104,7 @@ class Daemonizer:
         self._daemonize_called = True
         
         if self._is_parent:
-            return _daemonize1(*args, **kwargs, _exit_caller=False)
+            return _daemonize1(*args, _exit_caller=False, **kwargs)
         
         else:
             return _daemonize2(*args, **kwargs)
@@ -319,7 +319,8 @@ def _fork_worker(namespace_path, child_env, pid_file, invocation, chdir,
 def _daemonize1(pid_file, *args, chdir=None, stdin_goto=None, stdout_goto=None,
                 stderr_goto=None, umask=0o027, shielded_fds=None,
                 fd_fallback_limit=1024, success_timeout=30,
-                strip_cmd_args=False, _exit_caller=True):
+                strip_cmd_args=False, explicit_rescript=None,
+                _exit_caller=True):
     ''' Create an independent process for invocation, telling it to
     store its "pid" in the pid_file (actually, the pid of its signal
     listener). Payload is an iterable of variables to pass the invoked
@@ -375,12 +376,17 @@ def _daemonize1(pid_file, *args, chdir=None, stdin_goto=None, stdout_goto=None,
     script_path = os.path.abspath(script_path)
     _capability_check(pythonw_path, script_path)
     
-    invocation = '"' + pythonw_path + '" "' + script_path + '"'
-    # Note that we don't need to worry about being too short like this; python
-    # doesn't care with slicing. But, don't forget to escape the invocation.
-    if not strip_cmd_args:
-        for cmd_arg in sys.argv[1:]:
-            invocation += ' ' + shlex.quote(cmd_arg)
+    if explicit_rescript is None:
+        invocation = '"' + pythonw_path + '" "' + script_path + '"'
+        
+        # Note that we don't need to worry about being too short like this;
+        # python doesn't care with slicing. But, don't forget to escape the
+        # invocation.
+        if not strip_cmd_args:
+            for cmd_arg in sys.argv[1:]:
+                invocation += ' ' + shlex.quote(cmd_arg)
+    else:
+        invocation = '"' + pythonw_path + '" ' + explicit_rescript
     
     ####################################################################
     # Begin actual forking
@@ -398,7 +404,8 @@ def _daemonize1(pid_file, *args, chdir=None, stdin_goto=None, stdout_goto=None,
         # Now open up a secure way to pass a namespace to the daughter process.
         with _NamespacePasser() as fpath:
             # Determine the child env
-            child_env = {**_get_clean_env(), '__INVOKE_DAEMON__': fpath}
+            child_env = {'__INVOKE_DAEMON__': fpath}
+            child_env.update(_get_clean_env())
                 
             # We need to shield ourselves from signals, or we'll be terminated
             # by python before running cleanup. So use a spawned worker to
@@ -423,7 +430,8 @@ def _daemonize1(pid_file, *args, chdir=None, stdin_goto=None, stdout_goto=None,
                     pickle.dump(worker_argv, f, protocol=-1)
                     
                 # Create an env for the worker to let it know what to do
-                worker_env = {**_get_clean_env(), '__CREATE_DAEMON__': 'True'}
+                worker_env = {'__CREATE_DAEMON__': 'True'}
+                worker_env.update(_get_clean_env())
                 # Figure out the path to the current file
                 # worker_target = os.path.abspath(__file__)
                 worker_cmd = ('"' + python_path + '" -m ' +
@@ -466,7 +474,7 @@ def _daemonize1(pid_file, *args, chdir=None, stdin_goto=None, stdout_goto=None,
         # Reset args to be an equivalent expansion of *[None]s
         args = [None] * len(args)
         # is_parent, *args
-        return [True, *args]
+        return [True] + list(args)
     
     
 def _daemonize2(*_daemonize1_args, **_daemonize1_kwargs):
@@ -534,7 +542,7 @@ def _daemonize2(*_daemonize1_args, **_daemonize1_kwargs):
     # application expects a return value for is_parent
     else:
         # is_parent, *args
-        return [False, *args]
+        return [False] + list(args)
 
 
 if '__INVOKE_DAEMON__' in os.environ:
@@ -546,7 +554,7 @@ else:
 def _get_clean_env():
     ''' Gets a clean copy of our environment, with any flags stripped.
     '''
-    env2 = {**os.environ}
+    env2 = dict(os.environ)
     flags = {
         '__INVOKE_DAEMON__',
         '__CREATE_DAEMON__',
