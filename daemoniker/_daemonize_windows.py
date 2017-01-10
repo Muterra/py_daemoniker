@@ -319,7 +319,8 @@ def _fork_worker(namespace_path, child_env, pid_file, invocation, chdir,
 def _daemonize1(pid_file, *args, chdir=None, stdin_goto=None, stdout_goto=None,
                 stderr_goto=None, umask=0o027, shielded_fds=None,
                 fd_fallback_limit=1024, success_timeout=30,
-                strip_cmd_args=False, _exit_caller=True):
+                strip_cmd_args=False, explicit_rescript=None,
+                _exit_caller=True):
     ''' Create an independent process for invocation, telling it to
     store its "pid" in the pid_file (actually, the pid of its signal
     listener). Payload is an iterable of variables to pass the invoked
@@ -375,12 +376,17 @@ def _daemonize1(pid_file, *args, chdir=None, stdin_goto=None, stdout_goto=None,
     script_path = os.path.abspath(script_path)
     _capability_check(pythonw_path, script_path)
     
-    invocation = '"' + pythonw_path + '" "' + script_path + '"'
-    # Note that we don't need to worry about being too short like this; python
-    # doesn't care with slicing. But, don't forget to escape the invocation.
-    if not strip_cmd_args:
-        for cmd_arg in sys.argv[1:]:
-            invocation += ' ' + shlex.quote(cmd_arg)
+    if explicit_rescript is None:
+        invocation = '"' + pythonw_path + '" "' + script_path + '"'
+        
+        # Note that we don't need to worry about being too short like this;
+        # python doesn't care with slicing. But, don't forget to escape the
+        # invocation.
+        if not strip_cmd_args:
+            for cmd_arg in sys.argv[1:]:
+                invocation += ' ' + shlex.quote(cmd_arg)
+    else:
+        invocation = '"' + pythonw_path + '" ' + explicit_rescript
     
     ####################################################################
     # Begin actual forking

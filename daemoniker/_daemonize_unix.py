@@ -273,7 +273,7 @@ def _autoclose_files(shielded=None, fallback_limit=1024):
 def daemonize(pid_file, *args, chdir=None, stdin_goto=None, stdout_goto=None,
               stderr_goto=None, umask=0o027, shielded_fds=None,
               fd_fallback_limit=1024, success_timeout=30,
-              strip_cmd_args=False, _exit_caller=True):
+              strip_cmd_args=False, explicit_rescript=None, _exit_caller=True):
     ''' Performs a classic unix double-fork daemonization. Registers all
     appropriate cleanup functions.
     
