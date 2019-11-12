@@ -216,7 +216,7 @@ class SignalHandler1(_SighandlerCore):
         python_path = sys.executable
         python_path = os.path.abspath(python_path)
         worker_cmd = ('"' + python_path + '" -m ' +
-                      'daemoniker._signals_windows')
+                      'daemoniker._signals_windows_main')
         worker_env = {'__CREATE_SIGHANDLER__': 'True'}
         worker_env.update(_get_clean_env())
         
@@ -315,7 +315,7 @@ class SignalHandler1(_SighandlerCore):
         _sketch_raise_in_main(exc)
     
     
-if __name__ == '__main__':
+def signals_main():
     ''' Do this so we can support process-based workers using Popen
     instead of multiprocessing, which would impose extra requirements
     on whatever code used Windows daemonization to avoid infinite
