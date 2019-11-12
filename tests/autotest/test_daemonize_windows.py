@@ -279,9 +279,9 @@ class Deamonizing_test(unittest.TestCase):
         '''
         with tempfile.TemporaryDirectory() as dirname:
             
-            pid_file = dirname + '/testpid.pid'
+            pid_file = os.path.join(dirname, 'testpid.pid')
             token = 2718282
-            res_path = dirname + '/response.txt'
+            res_path = os.path.join(dirname, 'response.txt')
             
             worker_env = {
                 '__TESTWORKER__': 'True',
