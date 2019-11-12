@@ -435,7 +435,7 @@ def _daemonize1(pid_file, *args, chdir=None, stdin_goto=None, stdout_goto=None,
                 # Figure out the path to the current file
                 # worker_target = os.path.abspath(__file__)
                 worker_cmd = ('"' + python_path + '" -m ' +
-                              'daemoniker._daemonize_windows ' +
+                              'daemoniker._daemonize_windows_main ' +
                               '"' + worker_argpath + '"')
                 
                 try:
@@ -567,8 +567,8 @@ def _get_clean_env():
             
     return env2
     
-    
-if __name__ == '__main__':
+
+def daemonize_main():
     ''' Do this so we can support process-based workers using Popen
     instead of multiprocessing, which would impose extra requirements
     on whatever code used Windows daemonization to avoid infinite
